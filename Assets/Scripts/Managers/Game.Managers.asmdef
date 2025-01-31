@@ -1,0 +1,14 @@
+{
+    "name": "Game.Manager",
+    "rootNamespace": "Game.Manager",
+    "references": ["Game.Core"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
