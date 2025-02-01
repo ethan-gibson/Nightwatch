@@ -5,18 +5,22 @@ namespace Game.Entities
 {
 	public class VanishingAnomaly : AnomalyMain
 	{
-		[SerializeField] MeshRenderer _meshRenderer;
+		[SerializeField] MeshRenderer meshRenderer;
 
+		private void Awake()
+		{
+			meshRenderer = GetComponent<MeshRenderer>();
+		}
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
-			_meshRenderer.enabled = false;
+			meshRenderer.enabled = false;
 		}
 
 		protected override void resetAnomaly()
 		{
 			base.resetAnomaly();
-			_meshRenderer.enabled = true;
+			meshRenderer.enabled = true;
 		}
 	}
 }

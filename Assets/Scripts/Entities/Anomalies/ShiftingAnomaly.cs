@@ -1,4 +1,7 @@
+using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using Game.Core;
 using UnityEngine;
 
 namespace Game.Entities
@@ -6,10 +9,10 @@ namespace Game.Entities
 	public class ShiftingAnomaly : AnomalyMain
 	{
 		[SerializeField] private float shiftTime = 3f;
-		private Vector3 normalLocation;
-		private Quaternion normalRotation;
-		private Vector3 shiftedLocation;
-		private Quaternion shiftedRotation;
+		[SerializeField] private Vector3 normalLocation;
+		[SerializeField] private Quaternion normalRotation;
+		[SerializeField] private Vector3 shiftedLocation;
+		[SerializeField] private Quaternion shiftedRotation;
 
 		private void Awake()
 		{
@@ -32,15 +35,27 @@ namespace Game.Entities
 		private async UniTask shifting()
 		{
 			float _elapsedTime = 0;
-			while (_elapsedTime < shiftTime)
+
+
+			cts?.Cancel();
+			cts?.Dispose();
+			cts = new CancellationTokenSource();
+			var _cts = cts.Token;
+			//need new tolen each time it runs
+			try
 			{
-				transform.position = Vector3.Lerp(normalLocation, shiftedLocation, _elapsedTime / shiftTime);
-				transform.rotation = Quaternion.Lerp(normalRotation, shiftedRotation, _elapsedTime / shiftTime);
-				_elapsedTime += Time.deltaTime;
-				await UniTask.Yield();
+				while (_elapsedTime < shiftTime)
+				{
+					transform.position = Vector3.Lerp(normalLocation, shiftedLocation, _elapsedTime / shiftTime);
+					transform.rotation = Quaternion.Lerp(normalRotation, shiftedRotation, _elapsedTime / shiftTime);
+					_elapsedTime += Time.deltaTime;
+					await UniTask.Yield();
+				}
+				transform.position = shiftedLocation;
 			}
-			transform.position = shiftedLocation;
+			catch (OperationCanceledException) { transform.position = normalLocation; }
 		}
+
 
 		#region Editor
 

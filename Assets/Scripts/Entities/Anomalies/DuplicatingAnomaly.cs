@@ -4,10 +4,10 @@ namespace Game.Entities
 {
 	public class DuplicatingAnomaly : AnomalyMain
 	{
-		private Vector3 normalLocation;
-		private Quaternion normalRotation;
-		private Vector3 duplicateLocation;
-		private Quaternion duplicateRotation;
+		[SerializeField] private Vector3 normalLocation;
+		[SerializeField] private Quaternion normalRotation;
+		[SerializeField] private Vector3 duplicateLocation;
+		[SerializeField] private Quaternion duplicateRotation;
 		private GameObject duplicatedAnomaly;
 
 		private void Awake()
@@ -27,8 +27,7 @@ namespace Game.Entities
 			base.resetAnomaly();
 			Destroy(duplicatedAnomaly);
 		}
-
-		#region MyRegion
+		#region Editor
 
 		public void SetNormalLocationRotaion()
 		{

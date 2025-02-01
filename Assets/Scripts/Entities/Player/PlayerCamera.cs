@@ -6,7 +6,7 @@ namespace Game.Entities
 	public class PlayerCamera : MonoBehaviour
 	{
 		[SerializeField] private Transform playerTransform;
-		[SerializeField] private float mouseSens = 3f;
+		[SerializeField] private float mouseSens = 10f;
 		[SerializeField] private float maxLookAngle = 85f;
 		private Vector2 lookInput;
 		private float xRotation = 0f;
