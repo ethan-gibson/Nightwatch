@@ -1,7 +1,13 @@
 {
     "name": "Game.Manager",
     "rootNamespace": "Game.Manager",
-    "references": ["Game.Core"],
+    "references": [
+        "Game.Core",
+        "Game.Entities",
+        "UniTask",
+        "Unity.TextMeshPro",
+        "Game.UI"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

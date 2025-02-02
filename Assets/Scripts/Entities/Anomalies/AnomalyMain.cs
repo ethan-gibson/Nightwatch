@@ -1,11 +1,11 @@
+using System;
 using System.Threading;
 using Game.Core;
-using Game.Manager;
 using UnityEngine;
 
 namespace Game.Entities
 {
-	public abstract class AnomalyMain : MonoBehaviour, IInteractable
+	public abstract class AnomalyMain : MonoBehaviour
 	{
 		protected bool changed;
 
@@ -13,63 +13,57 @@ namespace Game.Entities
 		private int anomalyWeight;
 
 		public delegate void AnomalySpawned(int _weight);
+
 		protected CancellationTokenSource cts;
 
-		private AnomalySpawned anomalySpawned;
-		
+		public AnomalySpawned AnomalySpawnedEvent;
+		private bool isVisible;
+
 		private void Awake()
 		{
 			cts = new CancellationTokenSource();
-			anomalySpawned += GameManager.Instance.increaseAnomalyCount;
-		}
-
-		private void onDestroy()
-		{
-			anomalySpawned -= GameManager.Instance.increaseAnomalyCount;
-			cts.Cancel();
-			cts.Dispose();
 		}
 
 		protected virtual void anomalyChange()
 		{
 			changed = true;
-			anomalySpawned?.Invoke(anomalyWeight);
+			AnomalySpawnedEvent?.Invoke(anomalyWeight);
 		}
 
 		protected virtual void resetAnomaly()
 		{
 			changed = false;
-			anomalySpawned?.Invoke(-anomalyWeight);
+			AnomalySpawnedEvent?.Invoke(-anomalyWeight);
 		}
 
-		public virtual void CallChangeAnomaly()
+		public void CallChangeAnomaly()
 		{
 			anomalyChange();
 		}
 
-		public virtual void CallAnomalyReset()
+		public void CallAnomalyReset()
 		{
 			resetAnomaly();
 		}
 
-		[field: SerializeField] public float MaxRange { get; set; } = 10;
-		public string InteractionText { get; set; } = "anomaly";
-
-		public void OnStartHover()
+		public bool IsChanged()
 		{
-			
+			return changed;
 		}
 
-		public void OnInteract()
+		public bool IsVisible()
 		{
-			if(!changed){return;}
-			resetAnomaly();
-			//GameManager.Instance.boostSpawnRate();
+			return isVisible;
 		}
 
-		public void OnEndHover()
+		private void OnBecameVisible()
 		{
-			
+			isVisible = true;
+		}
+
+		private void OnBecameInvisible()
+		{
+			isVisible = false;
 		}
 	}
 }

@@ -1,10 +1,8 @@
 {
-    "name": "Game.Entities",
-    "rootNamespace": "Game.Entities",
+    "name": "Game.UI",
+    "rootNamespace": "Game.UI",
     "references": [
-        "GUID:75469ad4d38634e559750d17036d5f7c",
-        "GUID:a127bcf7b1a864788b39f64dbf68bc5a",
-        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

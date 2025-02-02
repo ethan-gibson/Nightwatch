@@ -19,6 +19,7 @@ namespace Game.Entities
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
+			changed = true;
 			scaling().Forget();
 		}
 
@@ -34,7 +35,6 @@ namespace Game.Entities
 			cts?.Cancel();
 			cts?.Dispose();
 			cts = new CancellationTokenSource();
-			var _cts = cts.Token;
 			//need new tolen each time it runs
 			try
 			{
@@ -43,12 +43,22 @@ namespace Game.Entities
 				{
 					transform.localScale = Vector3.Lerp(normalScale, shiftedScale, _elapsedTime / growTime);
 					_elapsedTime += Time.deltaTime;
-					await UniTask.Yield(cancellationToken: _cts);
+					await UniTask.Yield(cancellationToken: cts.Token);
 				}
 				transform.localScale = shiftedScale;
 			}
-			catch (OperationCanceledException) { transform.localScale = normalScale; }
+			catch (OperationCanceledException) { }
 		}
+
+		private void OnDestroy()
+		{
+			Debug.Log("destroyed");
+			if (cts == null) { return; }
+			cts?.Cancel();
+			cts?.Dispose();
+			cts = null;
+		}
+
 
 		#region Editor
 

@@ -36,12 +36,10 @@ namespace Game.Entities
 		{
 			float _elapsedTime = 0;
 
-
 			cts?.Cancel();
 			cts?.Dispose();
 			cts = new CancellationTokenSource();
-			var _cts = cts.Token;
-			//need new tolen each time it runs
+			//need new token each time it runs
 			try
 			{
 				while (_elapsedTime < shiftTime)
@@ -49,11 +47,20 @@ namespace Game.Entities
 					transform.position = Vector3.Lerp(normalLocation, shiftedLocation, _elapsedTime / shiftTime);
 					transform.rotation = Quaternion.Lerp(normalRotation, shiftedRotation, _elapsedTime / shiftTime);
 					_elapsedTime += Time.deltaTime;
-					await UniTask.Yield();
+					await UniTask.Yield(cancellationToken: cts.Token);
 				}
 				transform.position = shiftedLocation;
 			}
-			catch (OperationCanceledException) { transform.position = normalLocation; }
+			catch (OperationCanceledException) { }
+		}
+
+		private void OnDestroy()
+		{
+			Debug.Log("destroyed");
+			if (cts == null) { return; }
+			cts?.Cancel();
+			cts?.Dispose();
+			cts = null;
 		}
 
 
