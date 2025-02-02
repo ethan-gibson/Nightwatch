@@ -19,14 +19,14 @@ namespace Game.Manager
 		[SerializeField] private InGameMenu inGameMenu;
 		private bool playerWarned;
 		private HUDManager hudManager;
-		[SerializeField] private AudioSource anomalyWarningSound;
 		[SerializeField] private List<AnomalyMain> anomalies;
 		[SerializeField] private float gameLenght = 500;
 		[SerializeField] private float anomalyCooldown = 40f;
 		[SerializeField] private float anomalyCooldownReduction = 4f;
-		private float hour = 0;
+		private float hour;
 		private Transform player;
 		private PlayerPhone playerPhone;
+		[SerializeField] private Material staticMaterial;
 		private CancellationTokenSource cts;
 
 		private void Start()
@@ -38,14 +38,15 @@ namespace Game.Manager
 			foreach (var _anomaly in anomalies)
 			{
 				_anomaly.AnomalySpawnedEvent += increaseAnomalyCount;
-				var _temp = _anomaly.gameObject.GetComponent<HuntingAnomaly>();//HuntingAnomaly can kill player, so it gets special delegate
+				var _temp = _anomaly.gameObject.GetComponent<HuntingAnomaly>(); //HuntingAnomaly can kill player, so it gets special delegate
 				if (_temp != null) { _anomaly.gameObject.GetComponent<HuntingAnomaly>().caughtPlayer += Callmenu; }
 			}
 			player = GameObject.FindGameObjectWithTag("Player").transform;
 			playerPhone = player.GetComponentInChildren<PlayerPhone>();
 			playerPhone.Report += reportCheck;
 			countDown().Forget();
-			}
+			anomalyTrigger().Forget();
+		}
 
 		private void OnDestroy()
 		{
@@ -60,13 +61,23 @@ namespace Game.Manager
 		private void increaseAnomalyCount(int _weight)
 		{
 			anomalyCounter += _weight;
+			Debug.Log(anomalyCounter);
 			if (anomalyCounter >= maxAnomalyWeight) { bringUpMenu(); }
-			if (anomalyCounter == anomalyWarningAmount && !playerWarned) { anomalyWarningSound.Play(); }
+			if (anomalyCounter == anomalyWarningAmount && !playerWarned) { warnPlayer(); }
+			staticMaterial.SetFloat("_staticCoverage", anomalyCounter / maxAnomalyWeight);
 		}
 
 		public void Callmenu()
 		{
 			bringUpMenu();
+		}
+
+		private void warnPlayer()
+		{
+			playerWarned = true;
+			playerPhone.PlayWarning();
+			StopAllCoroutines();
+			StartCoroutine(setWarnignText());
 		}
 
 		private void bringUpMenu(string _text = "Game Over")
@@ -83,23 +94,28 @@ namespace Game.Manager
 			StartCoroutine(setReportText(_check));
 		}
 
+		private IEnumerator setWarnignText()
+		{
+			hudManager.SetReportText("WARNING: TOO MANY ANOMALIES", Color.red);
+			yield return new WaitForSeconds(3f);
+			hudManager.SetReportText("", Color.black);
+		}
+
 		private IEnumerator setReportText(bool _check)
 		{
-			if (_check)
-			{
-				hudManager.SetReportText("Anomalies Reported", Color.green);
-			}
+			if (_check) { hudManager.SetReportText("Anomalies Reported", Color.green); }
 			else
 			{
 				hudManager.SetReportText("No Anomalies Found", Color.red);
 				StartCoroutine(anomalyBoost());
 			}
 			yield return new WaitForSeconds(3f);
-			hudManager.SetReportText("", Color.black);//color doesnt matter here
+			hudManager.SetReportText("", Color.black); //color doesnt matter here
 		}
 
 		private IEnumerator anomalyBoost()
 		{
+			Debug.Log("Bad Report");
 			anomalyCooldown -= 15;
 			yield return new WaitForSeconds(30f);
 			anomalyCooldown += 15;
@@ -131,7 +147,7 @@ namespace Game.Manager
 			{
 				while (waitTime >= 0)
 				{
-					gameLenght -= Time.deltaTime;
+					waitTime -= Time.deltaTime;
 					await UniTask.Yield(cancellationToken: cts.Token);
 				}
 				getAnomalyToTrigger();
@@ -142,9 +158,8 @@ namespace Game.Manager
 		private void getAnomalyToTrigger()
 		{
 			int x = Random.Range(0, anomalies.Count);
-			if (anomalies[x].IsVisible())
+			if (anomalies[x].IsVisible() || anomalies[x].IsChanged())
 			{
-				//if player can potentially see it, trigger a differant anomaly
 				getAnomalyToTrigger();
 				return;
 			}

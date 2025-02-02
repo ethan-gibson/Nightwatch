@@ -18,12 +18,10 @@ public class Bed : MonoBehaviour,IInteractable
     }
     public void OnStartHover()
     {
-        Debug.Log(InteractionText);
         //HUDManager.Instance.SetInteractionText(InteractionText);
     }
     public void OnInteract()
     {
-        Debug.unityLogger.Log(isHiding);
         player.HideUnderBed(playerHideLocation);
         
     }

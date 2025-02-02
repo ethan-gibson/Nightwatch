@@ -13,6 +13,7 @@ namespace Game.Entities
 		private PlayerInput playerInput;
 		private bool reportPrepped;
 		private RaycastHit[] scannedObjects;
+		private AudioSource warningSound;
 
 		public delegate void MadeReport(bool _report);
 
@@ -24,6 +25,7 @@ namespace Game.Entities
 			setInputActions();
 			phoneCamera = raycastCamera.GetComponent<Camera>();
 			phoneCamera.enabled = false;
+			warningSound = GetComponent<AudioSource>();
 		}
 
 		private void FixedUpdate()
@@ -46,6 +48,11 @@ namespace Game.Entities
 		private void OnDestroy()
 		{
 			removeInputActions();
+		}
+
+		public void PlayWarning()
+		{
+			warningSound.Play();
 		}
 
 		private void prepReport()

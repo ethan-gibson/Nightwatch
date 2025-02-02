@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -19,6 +21,7 @@ namespace Game.Entities
 		private event LookInputEvent onLookInput;
 		private event CrouchInputEvent onCrouchInput;
 		[SerializeField] private PlayerCamera playerCamera;
+		[SerializeField] private GameObject playerPhone;
 		private CancellationTokenSource cts;
 		private float hideHeight = 0.3f;
 		private bool isHiding;
@@ -35,6 +38,7 @@ namespace Game.Entities
 			setInputActions();
 			cts = new CancellationTokenSource();
 			cachedSpeed = speed;
+			playerCamera = GetComponentInChildren<PlayerCamera>();
 		}
 
 		private void OnDestroy()
@@ -66,15 +70,17 @@ namespace Game.Entities
 
 		private void crouch(InputAction.CallbackContext ctx)
 		{
-			if (isCrouched) { return; }
+			if (isHiding) { return; }
 			switch (isCrouched)
 			{
 				case false:
 					playerCollider.transform.localScale = new Vector3(1, 0.5f, 1);
+					playerPhone.transform.localScale = new Vector3(0.008f, 0.012f, 0.024f);
 					isCrouched = true;
 					break;
 				case true:
 					playerCollider.transform.localScale = new Vector3(1, 1, 1);
+					playerPhone.transform.localScale = new Vector3(0.008f, 0.012f, 0.012f);
 					isCrouched = false;
 					break;
 			}
@@ -82,24 +88,27 @@ namespace Game.Entities
 
 		private void exitHiding()
 		{
+			if (!isHiding) { return; }
 			if (underBed) { exitBed(); }
 			if (inCloset) { exitCloset(); }
 		}
 
 		public void HideUnderBed(Transform _underBed)
 		{
+			playerPhone.SetActive(false);
 			underBed = true;
-			isHiding = true;
+			StartCoroutine(enterExitCooldown());
 			speed = 0;
 			enterPos = transform.position;
 			transform.localScale = new Vector3(1, hideHeight, 1);
 			characterController.enabled = false;
 			transform.position = _underBed.position;
+			Debug.Log("Under bed");
 		}
 
 		private void exitBed()
 		{
-			underBed = false;
+			playerPhone.SetActive(true);
 			isHiding = false;
 			speed = cachedSpeed;
 			transform.position = enterPos;
@@ -109,8 +118,9 @@ namespace Game.Entities
 
 		public void HideInCloset(Transform _closet)
 		{
+			playerPhone.SetActive(false);
 			inCloset = true;
-			isHiding = true;
+			StartCoroutine(enterExitCooldown());
 			speed = 0;
 			enterPos = transform.position;
 			characterController.enabled = false;
@@ -118,11 +128,18 @@ namespace Game.Entities
 
 		private void exitCloset()
 		{
+			playerPhone.SetActive(true);
 			inCloset = false;
 			isHiding = false;
 			speed = cachedSpeed;
 			transform.position = enterPos;
 			characterController.enabled = true;
+		}
+
+		private IEnumerator enterExitCooldown()
+		{
+			yield return new WaitForSeconds(0.5f);
+			isHiding = true;
 		}
 
 		public void lockPlayer(Transform lookPoint, float lookTime)
