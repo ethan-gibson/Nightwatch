@@ -6,7 +6,7 @@ namespace Game.Entities
 	{
 		protected CharacterController characterController { get; set; }
 		[SerializeField] protected float speed = 5f;
-		private Vector3 velocity;
+		protected Vector3 velocity;
 		private Vector3 movementDirection;
 
 		protected delegate void MoveInputEvent(Vector2 _direction);

@@ -7,7 +7,6 @@ public class Bed : MonoBehaviour,IInteractable
 {
     [field: SerializeField] public float MaxRange { get; set; }
     [field: SerializeField] public string InteractionText { get; set; }
-    private bool isHiding = false;
     private Vector3 playerReturnLocation;
     private PlayerMovement player;
     [SerializeField] private Transform playerHideLocation;
@@ -18,7 +17,7 @@ public class Bed : MonoBehaviour,IInteractable
     }
     public void OnStartHover()
     {
-        //HUDManager.Instance.SetInteractionText(InteractionText);
+        HUDManager.Instance.SetInteractionText(InteractionText);
     }
     public void OnInteract()
     {
@@ -27,6 +26,6 @@ public class Bed : MonoBehaviour,IInteractable
     }
     public void OnEndHover()
     {
-        //HUDManager.Instance.SetInteractionText("");
+        HUDManager.Instance.SetInteractionText("");
     }
 }

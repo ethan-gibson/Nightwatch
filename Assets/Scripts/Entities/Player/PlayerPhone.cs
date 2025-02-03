@@ -7,13 +7,16 @@ namespace Game.Entities
 	public class PlayerPhone : MonoBehaviour
 	{
 		private Camera phoneCamera;
-		private const float range = 10;
+		private const float range = 40;
 		[SerializeField] private LayerMask mask;
 		[SerializeField] private GameObject raycastCamera;
 		private PlayerInput playerInput;
 		private bool reportPrepped;
 		private RaycastHit[] scannedObjects;
-		private AudioSource warningSound;
+		private AudioSource audioSource;
+		[SerializeField] private AudioClip warning;
+		[SerializeField] private AudioClip goodReport;
+		[SerializeField] private AudioClip badReport;
 
 		public delegate void MadeReport(bool _report);
 
@@ -25,7 +28,7 @@ namespace Game.Entities
 			setInputActions();
 			phoneCamera = raycastCamera.GetComponent<Camera>();
 			phoneCamera.enabled = false;
-			warningSound = GetComponent<AudioSource>();
+			audioSource = GetComponent<AudioSource>();
 		}
 
 		private void FixedUpdate()
@@ -52,7 +55,8 @@ namespace Game.Entities
 
 		public void PlayWarning()
 		{
-			warningSound.Play();
+			audioSource.clip = warning;
+			audioSource.Play();
 		}
 
 		private void prepReport()
@@ -61,7 +65,7 @@ namespace Game.Entities
 			{
 				reportPrepped = true;
 				Ray _ray = new Ray(raycastCamera.transform.position, raycastCamera.transform.forward);
-				scannedObjects = Physics.SphereCastAll(_ray, 0.5f, range, mask);
+				scannedObjects = Physics.RaycastAll(_ray, range, mask);
 			}
 			else { report(); }
 		}
@@ -89,6 +93,21 @@ namespace Game.Entities
 			}
 			Debug.Log("report was " + _goodReport);
 			Report?.Invoke(_goodReport);
+			playAudio(_goodReport);
+		}
+
+		private void playAudio(bool _report)
+		{
+			if (_report)
+			{
+				audioSource.clip = goodReport;
+				audioSource.Play();
+			}
+			else
+			{
+				audioSource.clip = badReport;
+				audioSource.Play();
+			}
 		}
 	}
 }

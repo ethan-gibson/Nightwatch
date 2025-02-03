@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Entities;
@@ -19,7 +18,7 @@ namespace Game.Manager
 		[SerializeField] private InGameMenu inGameMenu;
 		private bool playerWarned;
 		private HUDManager hudManager;
-		[SerializeField] private List<AnomalyMain> anomalies;
+		[SerializeField] private AnomalyMain[] anomalies;
 		[SerializeField] private float gameLenght = 500;
 		[SerializeField] private float anomalyCooldown = 40f;
 		[SerializeField] private float anomalyCooldownReduction = 4f;
@@ -28,6 +27,9 @@ namespace Game.Manager
 		private PlayerPhone playerPhone;
 		[SerializeField] private Material staticMaterial;
 		private CancellationTokenSource cts;
+		private GameObject[] stalkerEntryExitPoints;
+		[SerializeField] private GameObject stalkerPrefab;
+		[SerializeField] private float stalkerCooldown = 130f; //would be 110ish since hes only on the map for 20s
 
 		private void Start()
 		{
@@ -35,22 +37,22 @@ namespace Game.Manager
 			else { Destroy(gameObject); }
 			hudManager = GetComponent<HUDManager>();
 			cts = new CancellationTokenSource();
-			foreach (var _anomaly in anomalies)
-			{
-				_anomaly.AnomalySpawnedEvent += increaseAnomalyCount;
-				var _temp = _anomaly.gameObject.GetComponent<HuntingAnomaly>(); //HuntingAnomaly can kill player, so it gets special delegate
-				if (_temp != null) { _anomaly.gameObject.GetComponent<HuntingAnomaly>().caughtPlayer += Callmenu; }
-			}
+			stalkerEntryExitPoints = GameObject.FindGameObjectsWithTag("StalkerEnterExit");
+			anomalies = FindObjectsOfType<AnomalyMain>();
+			foreach (var _anomaly in anomalies) { _anomaly.AnomalySpawnedEvent += increaseAnomalyCount; }
 			player = GameObject.FindGameObjectWithTag("Player").transform;
+			player.GetComponent<PlayerMovement>().OnPlayerKilled += CallMenu;
 			playerPhone = player.GetComponentInChildren<PlayerPhone>();
 			playerPhone.Report += reportCheck;
 			countDown().Forget();
 			anomalyTrigger().Forget();
+			hunterSpawner().Forget();
 		}
 
 		private void OnDestroy()
 		{
 			foreach (var _anomaly in anomalies) { _anomaly.AnomalySpawnedEvent -= increaseAnomalyCount; }
+			player.GetComponent<PlayerMovement>().OnPlayerKilled -= CallMenu;
 			playerPhone.Report -= reportCheck;
 			if (cts == null) { return; }
 			cts?.Cancel();
@@ -64,10 +66,10 @@ namespace Game.Manager
 			Debug.Log(anomalyCounter);
 			if (anomalyCounter >= maxAnomalyWeight) { bringUpMenu(); }
 			if (anomalyCounter == anomalyWarningAmount && !playerWarned) { warnPlayer(); }
-			staticMaterial.SetFloat("_staticCoverage", anomalyCounter / maxAnomalyWeight);
+			staticMaterial.SetFloat("_staticCoverage", (float)anomalyCounter / maxAnomalyWeight);
 		}
 
-		public void Callmenu()
+		public void CallMenu()
 		{
 			bringUpMenu();
 		}
@@ -77,7 +79,7 @@ namespace Game.Manager
 			playerWarned = true;
 			playerPhone.PlayWarning();
 			StopAllCoroutines();
-			StartCoroutine(setWarnignText());
+			StartCoroutine(setWarningText());
 		}
 
 		private void bringUpMenu(string _text = "Game Over")
@@ -94,7 +96,7 @@ namespace Game.Manager
 			StartCoroutine(setReportText(_check));
 		}
 
-		private IEnumerator setWarnignText()
+		private IEnumerator setWarningText()
 		{
 			hudManager.SetReportText("WARNING: TOO MANY ANOMALIES", Color.red);
 			yield return new WaitForSeconds(3f);
@@ -107,18 +109,15 @@ namespace Game.Manager
 			else
 			{
 				hudManager.SetReportText("No Anomalies Found", Color.red);
-				StartCoroutine(anomalyBoost());
+				anomalyBoost();
 			}
 			yield return new WaitForSeconds(3f);
 			hudManager.SetReportText("", Color.black); //color doesnt matter here
 		}
 
-		private IEnumerator anomalyBoost()
+		private void anomalyBoost()
 		{
-			Debug.Log("Bad Report");
-			anomalyCooldown -= 15;
-			yield return new WaitForSeconds(30f);
-			anomalyCooldown += 15;
+			anomalyCooldown -= 1;
 		}
 
 		private async UniTask countDown()
@@ -157,7 +156,7 @@ namespace Game.Manager
 
 		private void getAnomalyToTrigger()
 		{
-			int x = Random.Range(0, anomalies.Count);
+			int x = Random.Range(0, anomalies.Length);
 			if (anomalies[x].IsVisible() || anomalies[x].IsChanged())
 			{
 				getAnomalyToTrigger();
@@ -166,6 +165,48 @@ namespace Game.Manager
 			Debug.Log(anomalies[x].name + " was activated");
 			anomalies[x].CallChangeAnomaly();
 			anomalyTrigger().Forget();
+		}
+
+		private async UniTask hunterSpawner()
+		{
+			float waitTime = stalkerCooldown;
+			try
+			{
+				while (true)
+				{
+					while (waitTime >= 0)
+					{
+						waitTime -= Time.deltaTime;
+						await UniTask.Yield(cancellationToken: cts.Token);
+					}
+					SpawnHunter();
+					waitTime = stalkerCooldown; // Reset the cooldown
+				}
+			}
+			catch (OperationCanceledException) { }
+		}
+
+		// Method to spawn the hunter enemy
+		private void SpawnHunter()
+		{
+			if (stalkerPrefab == null)
+			{
+				Debug.LogError("Hunter prefab is not assigned!");
+				return;
+			}
+
+			// Choose a random entry/exit point for the hunter
+			if (stalkerEntryExitPoints.Length == 0)
+			{
+				Debug.LogError("No stalker entry/exit points found!");
+				return;
+			}
+
+			int randomIndex = Random.Range(0, stalkerEntryExitPoints.Length);
+			Transform spawnPoint = stalkerEntryExitPoints[randomIndex].transform;
+
+			// Instantiate the hunter at the chosen spawn point
+			Instantiate(stalkerPrefab, spawnPoint.position, spawnPoint.rotation);
 		}
 	}
 }

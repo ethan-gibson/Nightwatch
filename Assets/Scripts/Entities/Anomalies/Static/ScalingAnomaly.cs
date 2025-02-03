@@ -20,6 +20,7 @@ namespace Game.Entities
 		{
 			base.anomalyChange();
 			changed = true;
+			Debug.Log(changed);
 			scaling().Forget();
 		}
 

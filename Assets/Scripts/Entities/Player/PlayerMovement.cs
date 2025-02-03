@@ -18,8 +18,11 @@ namespace Game.Entities
 
 		public delegate void CrouchInputEvent(InputAction.CallbackContext _ctx);
 
+		public delegate void PlayerKilledEvent();
+
 		private event LookInputEvent onLookInput;
 		private event CrouchInputEvent onCrouchInput;
+		public event PlayerKilledEvent OnPlayerKilled;
 		[SerializeField] private PlayerCamera playerCamera;
 		[SerializeField] private GameObject playerPhone;
 		private CancellationTokenSource cts;
@@ -29,6 +32,7 @@ namespace Game.Entities
 		private bool inCloset;
 		private Vector3 enterPos;
 		private float cachedSpeed;
+		private AudioSource audioSource;
 
 		protected override void Awake()
 		{
@@ -39,6 +43,7 @@ namespace Game.Entities
 			cts = new CancellationTokenSource();
 			cachedSpeed = speed;
 			playerCamera = GetComponentInChildren<PlayerCamera>();
+			audioSource = GetComponent<AudioSource>();
 		}
 
 		private void OnDestroy()
@@ -66,6 +71,24 @@ namespace Game.Entities
 			onMoveInput -= movement;
 			onLookInput -= playerCamera.OnLook;
 			onCrouchInput -= crouch;
+		}
+
+		private void LateUpdate()
+		{
+			if (velocity.magnitude > 5.1f)//lowest is 5 for some reason
+			{
+				if (!audioSource.isPlaying)
+				{
+					audioSource.Play();
+				}
+			}
+			else
+			{
+				if (audioSource.isPlaying)
+				{
+					audioSource.Stop();
+				}
+			}
 		}
 
 		private void crouch(InputAction.CallbackContext ctx)
@@ -144,9 +167,29 @@ namespace Game.Entities
 
 		public void lockPlayer(Transform lookPoint, float lookTime)
 		{
-			Debug.Log("controls locked");
 			camLookAt(lookPoint, lookTime).Forget();
+			Camera.main.fieldOfView = 40f;//zoom in on killer
 			removeInputActions();
+		}
+
+		public bool CheckIfHiding()
+		{
+			return isHiding;
+		}
+
+		public bool CheckIfUnderBed()
+		{
+			return underBed;
+		}
+
+		public bool CheckIfInCloset()
+		{
+			return inCloset;
+		}
+
+		public void InvokePlayerDeath()
+		{
+			OnPlayerKilled?.Invoke();
 		}
 
 		private async UniTask camLookAt(Transform lookPoint, float lookAtTime)

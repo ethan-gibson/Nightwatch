@@ -14,15 +14,15 @@ namespace Game.Entities
 		[SerializeField] private float speed;
 		[SerializeField] private Vector3 spawnLocation;
 		[SerializeField] private Transform lookPoint;
+		[SerializeField] AudioClip walkingSound;
+		[SerializeField] private AudioClip alertedSound;
 		private NavMeshAgent agent;
 		private Transform target;
 		private Collider targetCollider;
 		private SkinnedMeshRenderer skinnedMeshRenderer;
 		private AudioSource audioSource;
-
-		public delegate void CaughtPlayer();
-
-		public event CaughtPlayer caughtPlayer;
+		private Animator animator;
+		private bool activated;
 
 		private void Awake()
 		{
@@ -31,7 +31,14 @@ namespace Game.Entities
 			targetCollider = GetComponent<Collider>();
 			audioSource = GetComponent<AudioSource>();
 			target = GameObject.FindGameObjectWithTag("Player").transform;
-			//skinnedMeshRenderer = GetComponent<SkinnedMeshRenderer>();
+			animator = GetComponent<Animator>();
+			//skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+			activated = false;
+		}
+
+		private void Update()
+		{
+			animator.SetFloat("Velocity", agent.velocity.magnitude);
 		}
 
 		private void OnEnable()
@@ -39,7 +46,6 @@ namespace Game.Entities
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = false;
 			//skinnedMeshRenderer.enabled = false;
-			//anim.idle
 		}
 
 		protected override void anomalyChange()
@@ -47,14 +53,16 @@ namespace Game.Entities
 			base.anomalyChange();
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = true;
+			activated = true;
 			//skinnedMeshRenderer.enabled = true;
 		}
 
+
 		protected override void resetAnomaly()
 		{
-			base.anomalyChange();
+			base.resetAnomaly();
 			changed = false;
-
+			activated = true;
 			chasePlayer().Forget();
 		}
 
@@ -64,6 +72,13 @@ namespace Game.Entities
 			cts?.Dispose();
 			cts = new CancellationTokenSource();
 			float _elapsedTime = 0;
+			if (!audioSource.isPlaying)
+			{
+				audioSource.PlayOneShot(alertedSound);
+				audioSource.clip = walkingSound;
+				audioSource.Play();
+				audioSource.loop = true;
+			}
 
 			transform.LookAt(target.position, Vector3.up);
 			try
@@ -76,8 +91,6 @@ namespace Game.Entities
 				}
 			}
 			catch (OperationCanceledException) { }
-			//anim.chase
-			if (!targetCollider) { return; }
 			targetCollider.enabled = false;
 			agent.isStopped = true;
 			audioSource.Stop();
@@ -86,14 +99,18 @@ namespace Game.Entities
 
 		private void OnCollisionEnter(Collision _other)
 		{
-			if (_other.gameObject.CompareTag("Player"))
+			if (_other.gameObject.CompareTag("Player") && activated)
 			{
 				agent.isStopped = true;
 				audioSource.Stop();
-				caughtPlayer?.Invoke();
-				_other.gameObject.GetComponent<PlayerMovement>().lockPlayer(lookPoint, 3f);//will be 3f till anims added
-				//anim.playkillanim
+				_other.gameObject.GetComponent<PlayerMovement>().lockPlayer(lookPoint, 3f); //will be 3f till anims added
+				animator.SetBool("CoughtPlayer", true);
 			}
+		}
+
+		public void CallMenuOnAnimEnd()
+		{
+			target.GetComponent<PlayerMovement>().InvokePlayerDeath();
 		}
 
 		private void OnDestroy()
