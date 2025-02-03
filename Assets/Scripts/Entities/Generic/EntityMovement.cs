@@ -4,8 +4,8 @@ namespace Game.Entities
 {
 	public abstract class EntityMovement : MonoBehaviour
 	{
-		private CharacterController characterController { get; set; }
-		[SerializeField] private float speed = 5f;
+		protected CharacterController characterController { get; set; }
+		[SerializeField] protected float speed = 5f;
 		private Vector3 velocity;
 		private Vector3 movementDirection;
 
@@ -25,7 +25,7 @@ namespace Game.Entities
 
 		protected virtual void Update()
 		{
-			characterController.Move(velocity * Time.deltaTime);
+			if (characterController.enabled) { characterController.Move(velocity * Time.deltaTime); }
 		}
 
 		protected virtual void FixedUpdate()

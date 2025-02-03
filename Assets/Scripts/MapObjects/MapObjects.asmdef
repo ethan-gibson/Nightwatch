@@ -1,0 +1,18 @@
+{
+    "name": "MapObjects",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a127bcf7b1a864788b39f64dbf68bc5a",
+        "GUID:4e6c42e6536d04717b94c59cfd04ab3c",
+        "GUID:99096c14fb5d94e58a32af6e000fe35a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

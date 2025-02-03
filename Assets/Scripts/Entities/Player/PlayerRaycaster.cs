@@ -1,5 +1,4 @@
 using Game.Core;
-using Game.Manager;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -12,13 +11,12 @@ namespace Game.Entities
 	{
 		private const float range = 100;
 		private IInteractable currentTarget;
-		private Camera cam;
 		[SerializeField] private LayerMask mask;
+		[SerializeField] private GameObject RaycastCamera;
 		private PlayerInput playerInput;
 
 		private void Awake()
 		{
-			cam = Camera.main;
 			playerInput = GetComponent<PlayerInput>();
 			setInputActions();
 		}
@@ -50,7 +48,7 @@ namespace Game.Entities
 
 		private void raycastForInteractable()
 		{
-			Ray _ray = cam.ScreenPointToRay(Input.mousePosition);
+			Ray _ray = new Ray(RaycastCamera.transform.position, RaycastCamera.transform.forward);
 			//start
 			if (!Physics.Raycast(_ray, out var _hit, range, mask))
 			{
@@ -69,7 +67,7 @@ namespace Game.Entities
 				return;
 			}
 			if (_interactable == currentTarget) { return; }
-			HUDManager.Instance.SetInteractionText(_interactable.InteractionText);
+			//HUDManager.Instance.SetInteractionText(_interactable.InteractionText);
 			currentTarget = _interactable;
 			currentTarget.OnStartHover();
 		}
@@ -79,7 +77,7 @@ namespace Game.Entities
 			if (currentTarget == null) { return; }
 			currentTarget.OnEndHover();
 			currentTarget = null;
-			HUDManager.Instance.SetInteractionText("");
+			//HUDManager.Instance.SetInteractionText("");
 		}
 	}
 }

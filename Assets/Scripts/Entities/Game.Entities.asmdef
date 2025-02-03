@@ -3,8 +3,8 @@
     "rootNamespace": "Game.Entities",
     "references": [
         "GUID:75469ad4d38634e559750d17036d5f7c",
-        "Game.Core",
-        "Game.Manager"
+        "GUID:a127bcf7b1a864788b39f64dbf68bc5a",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
