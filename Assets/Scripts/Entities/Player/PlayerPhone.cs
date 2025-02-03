@@ -7,7 +7,7 @@ namespace Game.Entities
 	public class PlayerPhone : MonoBehaviour
 	{
 		private Camera phoneCamera;
-		private const float range = 40;
+		[SerializeField] float range = 40;
 		[SerializeField] private LayerMask mask;
 		[SerializeField] private GameObject raycastCamera;
 		private PlayerInput playerInput;
@@ -64,8 +64,8 @@ namespace Game.Entities
 			if (!reportPrepped)
 			{
 				reportPrepped = true;
-				Ray _ray = new Ray(raycastCamera.transform.position, raycastCamera.transform.forward);
-				scannedObjects = Physics.RaycastAll(_ray, range, mask);
+				Ray _ray = new Ray(raycastCamera.transform.position, raycastCamera.transform.forward * range);
+				scannedObjects = Physics.SphereCastAll(_ray, range, mask);
 			}
 			else { report(); }
 		}

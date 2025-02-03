@@ -75,19 +75,13 @@ namespace Game.Entities
 
 		private void LateUpdate()
 		{
-			if (velocity.magnitude > 5.1f)//lowest is 5 for some reason
+			if (velocity.magnitude > 5.1f) //lowest is 5 for some reason
 			{
-				if (!audioSource.isPlaying)
-				{
-					audioSource.Play();
-				}
+				if (!audioSource.isPlaying) { audioSource.Play(); }
 			}
 			else
 			{
-				if (audioSource.isPlaying)
-				{
-					audioSource.Stop();
-				}
+				if (audioSource.isPlaying) { audioSource.Stop(); }
 			}
 		}
 
@@ -168,8 +162,10 @@ namespace Game.Entities
 		public void lockPlayer(Transform lookPoint, float lookTime)
 		{
 			camLookAt(lookPoint, lookTime).Forget();
-			Camera.main.fieldOfView = 40f;//zoom in on killer
+			Camera.main.fieldOfView = 40f; //zoom in on killer
+			playerCamera.SetMouseSens(0f);
 			removeInputActions();
+			velocity = Vector3.zero;
 		}
 
 		public bool CheckIfHiding()

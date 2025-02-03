@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(ScalingAnomaly), true)]
-public class ScalingAnomalyEditor : Editor
+public class ScalingAnomalyEditor : UnityEditor.Editor
 {
 	public override void OnInspectorGUI()
 	{

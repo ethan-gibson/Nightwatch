@@ -37,5 +37,10 @@ namespace Game.Entities
 			xRotation = Mathf.Clamp(xRotation, -maxLookAngle, maxLookAngle);
 			transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
 		}
+
+		public void SetMouseSens(float _mouseSens)
+		{
+			mouseSens = _mouseSens;
+		}
 	}
 }

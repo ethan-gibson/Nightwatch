@@ -32,7 +32,8 @@ namespace Game.Entities
 			audioSource = GetComponent<AudioSource>();
 			target = GameObject.FindGameObjectWithTag("Player").transform;
 			animator = GetComponent<Animator>();
-			//skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+			skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
+			skinnedMeshRenderer.enabled = false;
 			activated = false;
 		}
 
@@ -45,7 +46,7 @@ namespace Game.Entities
 		{
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = false;
-			//skinnedMeshRenderer.enabled = false;
+			skinnedMeshRenderer.enabled = false;
 		}
 
 		protected override void anomalyChange()
@@ -54,7 +55,7 @@ namespace Game.Entities
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = true;
 			activated = true;
-			//skinnedMeshRenderer.enabled = true;
+			skinnedMeshRenderer.enabled = true;
 		}
 
 
@@ -94,17 +95,18 @@ namespace Game.Entities
 			targetCollider.enabled = false;
 			agent.isStopped = true;
 			audioSource.Stop();
-			//skinnedMeshRenderer.enabled = false;
+			skinnedMeshRenderer.enabled = false;
 		}
 
 		private void OnCollisionEnter(Collision _other)
 		{
 			if (_other.gameObject.CompareTag("Player") && activated)
 			{
+				lifeTime = 10f;
 				agent.isStopped = true;
 				audioSource.Stop();
-				_other.gameObject.GetComponent<PlayerMovement>().lockPlayer(lookPoint, 3f); //will be 3f till anims added
-				animator.SetBool("CoughtPlayer", true);
+				_other.gameObject.GetComponent<PlayerMovement>().lockPlayer(lookPoint, 3f);
+				animator.SetBool("CaughtPlayer", true);
 			}
 		}
 
@@ -127,6 +129,16 @@ namespace Game.Entities
 		public void SetSpawnLocation()
 		{
 			spawnLocation = transform.position;
+		}
+
+		public void TestSetActive()
+		{
+			CallChangeAnomaly();
+		}
+
+		public void TestReset()
+		{
+			CallAnomalyReset();
 		}
 
 		#endregion

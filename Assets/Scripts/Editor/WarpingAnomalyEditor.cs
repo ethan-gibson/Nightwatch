@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(WarpingAnomaly), true)]
-public class WarpingAnomalyEditor : Editor
+public class WarpingAnomalyEditor : UnityEditor.Editor
 {
 	public override void OnInspectorGUI()
 	{

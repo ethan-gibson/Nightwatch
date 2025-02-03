@@ -25,8 +25,6 @@ public class EnemyAI : MonoBehaviour
 	[SerializeField] private float lifeTime = 20f;
 	[SerializeField] private Transform highLookPoint;
 	[SerializeField] private Transform lowLookPoint;
-	[SerializeField] private float leaveLerpTime = 6;
-	[SerializeField] private float leaveLerpDist = 1.5f;
 	[SerializeField] private AudioClip alertedNoise;
 	[SerializeField] private AudioClip searchStarted;
 	[SerializeField] private AudioClip searchEnded;
@@ -41,7 +39,7 @@ public class EnemyAI : MonoBehaviour
 	private bool playerWasSeenHiding; //in case the stalker happens to get close to the player without seeing him
 	private float timeActive;
 	private bool isLeaving;
-	public GameObject[] exitPoints;
+	private GameObject[] exitPoints;
 	private Animator animator;
 	private bool canMove;
 	private float currentFOV;
@@ -56,7 +54,6 @@ public class EnemyAI : MonoBehaviour
 		playerMovment = player.GetComponent<PlayerMovement>();
 		exitPoints = GameObject.FindGameObjectsWithTag("StalkerEnterExit");
 		animator = GetComponent<Animator>();
-		StartCoroutine(lerpForward());
 		audioSource = GetComponent<AudioSource>();
 		walkingAudioSource = lowLookPoint.GetComponent<AudioSource>();
 	}
@@ -68,7 +65,6 @@ public class EnemyAI : MonoBehaviour
 		{
 			agent.speed = 0;
 			animator.SetBool("IsLeaving", true);
-			StartCoroutine(lerpForward());
 		}
 		if (!isLeaving)
 		{
@@ -222,20 +218,6 @@ public class EnemyAI : MonoBehaviour
 		if (_closestExit) { agent.SetDestination(_closestExit.position); }
 
 		else { Debug.LogError("No Valid Path"); }
-	}
-
-	private IEnumerator lerpForward()
-	{
-		float _elapsedTime = isLeaving ? -8 : 0;
-		Vector3 _startPos = transform.position;
-		Vector3 _endPos = transform.position + leaveLerpDist * Vector3.forward;
-		while (_elapsedTime < leaveLerpTime)
-		{
-			_elapsedTime += Time.deltaTime;
-			transform.position = Vector3.Lerp(_startPos, _endPos, _elapsedTime / leaveLerpTime);
-			yield return null;
-		}
-		if (isLeaving) { Destroy(this); }
 	}
 
 	private bool canSeePlayer()

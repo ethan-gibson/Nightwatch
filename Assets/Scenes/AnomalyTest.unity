@@ -2101,7 +2101,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2
+      value: 1.25
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.z
@@ -2138,10 +2138,6 @@ PrefabInstance:
     - target: {fileID: 7926580517754755083, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_Name
       value: Stalker
-      objectReference: {fileID: 0}
-    - target: {fileID: 7926580517754755083, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_IsActive
-      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

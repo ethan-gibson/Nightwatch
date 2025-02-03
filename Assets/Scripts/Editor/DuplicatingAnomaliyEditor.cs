@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(DuplicatingAnomaly), true)]
-public class DuplicatingAnomalyEditor : Editor
+public class DuplicatingAnomalyEditor : UnityEditor.Editor
 {
 	public override void OnInspectorGUI()
 	{

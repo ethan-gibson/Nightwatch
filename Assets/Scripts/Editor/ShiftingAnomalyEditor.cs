@@ -4,7 +4,7 @@ using UnityEngine;
 
 
 [CustomEditor(typeof(ShiftingAnomaly), true)]
-public class ShiftingAnomalyEditor : Editor
+public class ShiftingAnomalyEditor : UnityEditor.Editor
 {
 	public override void OnInspectorGUI()
 	{
