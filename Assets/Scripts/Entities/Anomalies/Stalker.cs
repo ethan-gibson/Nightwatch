@@ -45,6 +45,8 @@ public class EnemyAI : MonoBehaviour
 	private float currentFOV;
 	private AudioSource audioSource;
 	private AudioSource walkingAudioSource;
+	private Light[] lightsToFlicker;
+	private bool isFlickering;
 
 	private void Awake()
 	{
@@ -56,6 +58,9 @@ public class EnemyAI : MonoBehaviour
 		animator = GetComponent<Animator>();
 		audioSource = GetComponent<AudioSource>();
 		walkingAudioSource = lowLookPoint.GetComponent<AudioSource>();
+		lightsToFlicker = FindObjectsOfType<Light>();
+		isFlickering = true;
+		StartCoroutine(flickerLights());
 	}
 
 	private void Update()
@@ -103,6 +108,16 @@ public class EnemyAI : MonoBehaviour
 		else
 		{
 			if (walkingAudioSource.isPlaying) { walkingAudioSource.Stop(); }
+		}
+	}
+
+	private IEnumerator flickerLights()
+	{
+		while (isFlickering)
+		{
+			foreach (var _light in lightsToFlicker) { _light.intensity = Random.Range(0f, 1f); }
+			float _delayTimer = Random.Range(0f, 0.5f);
+			yield return new WaitForSeconds(_delayTimer);
 		}
 	}
 
@@ -244,7 +259,15 @@ public class EnemyAI : MonoBehaviour
 
 	public void OnAnimationCompleted()
 	{
-		if (isLeaving) { Destroy(gameObject); }
+		if (isLeaving)
+		{
+			isFlickering = false;
+			foreach (var _light in lightsToFlicker)
+			{
+				_light.intensity = 0.8f;
+			}
+			Destroy(gameObject);
+		}
 		agent.speed = patrolSpeed;
 		currentFOV = visionWidth;
 	}
