@@ -15129,6 +15129,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
+      propertyPath: shiftTime
+      value: 60
+      objectReference: {fileID: 0}
+    - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: anomalyWeight
       value: 3
       objectReference: {fileID: 0}
@@ -15154,7 +15158,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: shiftedLocation.x
-      value: -15.638
+      value: 0.048
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: shiftedLocation.y
@@ -15162,15 +15166,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: shiftedLocation.z
-      value: 7.647
+      value: 10.172
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: shiftedRotation.w
-      value: 0.70710677
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6481853165861462897, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: shiftedRotation.y
-      value: 0.70710677
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6829636342964187753, guid: 668558116741fad4ba7bef7ce3332e7f, type: 3}
       propertyPath: anomalyWeight
