@@ -14,8 +14,8 @@ namespace Game.Entities
 
 		private void Awake()
 		{
+			meshRenderer = GetComponent<MeshRenderer>();
 			originalMaterials = meshRenderer.sharedMaterials;
-			materialToChangeTo = originalMaterials[materialToChange];
 		}
 
 		protected override void anomalyChange()

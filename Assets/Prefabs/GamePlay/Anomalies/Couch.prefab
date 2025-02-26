@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 31ca1cbf8084b8b4eb953ecb95052449, type: 3}
       propertyPath: m_Name
-      value: New Prefab 5
+      value: Couch
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 31ca1cbf8084b8b4eb953ecb95052449, type: 3}
       propertyPath: m_Layer
@@ -72,7 +72,7 @@ PrefabInstance:
       addedObject: {fileID: 6916667896263355775}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 31ca1cbf8084b8b4eb953ecb95052449, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 6481853165861462897}
+      addedObject: {fileID: 5727467182587067413}
   m_SourcePrefab: {fileID: 100100000, guid: 31ca1cbf8084b8b4eb953ecb95052449, type: 3}
 --- !u!1 &4666730931507375828 stripped
 GameObject:
@@ -109,7 +109,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   anomalyWeight: 0
   meshRenderer: {fileID: 0}
---- !u!114 &6481853165861462897
+--- !u!114 &5727467182587067413
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -118,12 +118,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4666730931507375828}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f96886fd8e276f843a2ca4844903bec4, type: 3}
+  m_Script: {fileID: 11500000, guid: 6c7394bf842f443baded4bd89af75c51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   anomalyWeight: 0
-  shiftTime: 3
   normalLocation: {x: 0, y: 0, z: 0}
   normalRotation: {x: 0, y: 0, z: 0, w: 0}
-  shiftedLocation: {x: 0, y: 0, z: 0}
-  shiftedRotation: {x: 0, y: 0, z: 0, w: 0}
+  duplicateLocation: {x: 0, y: 0, z: 0}
+  duplicateRotation: {x: 0, y: 0, z: 0, w: 0}

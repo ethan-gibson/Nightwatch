@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b60b57b0459f5594198c65b130d32c89, type: 3}
       propertyPath: m_Name
-      value: New Prefab 15
+      value: TrashCan
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b60b57b0459f5594198c65b130d32c89, type: 3}
       propertyPath: m_Layer
@@ -70,9 +70,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b60b57b0459f5594198c65b130d32c89, type: 3}
       insertIndex: -1
       addedObject: {fileID: 6304516003270744470}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b60b57b0459f5594198c65b130d32c89, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 3115847856940251995}
   m_SourcePrefab: {fileID: 100100000, guid: b60b57b0459f5594198c65b130d32c89, type: 3}
 --- !u!1 &6696334739565620160 stripped
 GameObject:
@@ -114,17 +111,3 @@ MonoBehaviour:
   normalRotation: {x: 0, y: 0, z: 0, w: 0}
   shiftedLocation: {x: 0, y: 0, z: 0}
   shiftedRotation: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &3115847856940251995
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6696334739565620160}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4658d8599083eb4fb253caf1bc8f617, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  anomalyWeight: 0
-  meshRenderer: {fileID: 0}
