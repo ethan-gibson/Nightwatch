@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
       propertyPath: m_Name
-      value: New Prefab 8
+      value: CardboardBoxClosed
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
       propertyPath: m_Layer
@@ -66,9 +66,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 6636189767725142303}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 7867380003183997268}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
       insertIndex: -1
@@ -79,22 +76,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: b1e00f7e91dfcfd4095c407e9b8f9b18, type: 3}
   m_PrefabInstance: {fileID: 8284528948221501073}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &6636189767725142303
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9095554903298008000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 51ef7676e70417446833b8eb49845bbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  anomalyWeight: 0
-  normalScale: {x: 0, y: 0, z: 0}
-  shiftedScale: {x: 0, y: 0, z: 0}
-  growTime: 3
 --- !u!114 &7867380003183997268
 MonoBehaviour:
   m_ObjectHideFlags: 0
