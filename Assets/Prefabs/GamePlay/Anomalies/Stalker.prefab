@@ -382,7 +382,7 @@ MonoBehaviour:
   patrolRadius: 10
   searchRadius: 5
   searchDelay: 2
-  lifeTime: 300
+  lifeTime: 20
   highLookPoint: {fileID: 4070368845818819186}
   lowLookPoint: {fileID: 1595368269658249513}
   alertedNoise: {fileID: 8300000, guid: b2714085c20fb4bd4a19caa84c0d731b, type: 3}

@@ -9,7 +9,6 @@ public enum EnemyState
 	Patrolling,
 	Chasing,
 	Searching,
-	Leaving
 }
 
 public class EnemyAI : MonoBehaviour
@@ -31,7 +30,7 @@ public class EnemyAI : MonoBehaviour
 
 	private NavMeshAgent agent;
 	private Transform player;
-	private PlayerMovement playerMovment;
+	private PlayerMovement playerMovement;
 	private Vector3 lastKnownPlayerPosition;
 	private EnemyState currentState;
 	private float searchTimer = 0f;
@@ -45,22 +44,18 @@ public class EnemyAI : MonoBehaviour
 	private float currentFOV;
 	private AudioSource audioSource;
 	private AudioSource walkingAudioSource;
-	private Light[] lightsToFlicker;
-	private bool isFlickering;
+
 
 	private void Awake()
 	{
 		agent = GetComponent<NavMeshAgent>();
 		currentState = EnemyState.Patrolling; // Start in the patrolling state
 		player = GameObject.FindGameObjectWithTag("Player").transform;
-		playerMovment = player.GetComponent<PlayerMovement>();
+		playerMovement = player.GetComponent<PlayerMovement>();
 		exitPoints = GameObject.FindGameObjectsWithTag("StalkerEnterExit");
 		animator = GetComponent<Animator>();
 		audioSource = GetComponent<AudioSource>();
 		walkingAudioSource = lowLookPoint.GetComponent<AudioSource>();
-		lightsToFlicker = FindObjectsOfType<Light>();
-		isFlickering = true;
-		StartCoroutine(flickerLights());
 	}
 
 	private void Update()
@@ -70,6 +65,8 @@ public class EnemyAI : MonoBehaviour
 		{
 			agent.speed = 0;
 			animator.SetBool("IsLeaving", true);
+			gameObject.GetComponent<Collider>().enabled = false;
+			transform.position = agent.destination + new Vector3(0, 1.3f, 0);
 		}
 		if (!isLeaving)
 		{
@@ -108,16 +105,6 @@ public class EnemyAI : MonoBehaviour
 		else
 		{
 			if (walkingAudioSource.isPlaying) { walkingAudioSource.Stop(); }
-		}
-	}
-
-	private IEnumerator flickerLights()
-	{
-		while (isFlickering)
-		{
-			foreach (var _light in lightsToFlicker) { _light.intensity = Random.Range(0f, 1f); }
-			float _delayTimer = Random.Range(0f, 0.5f);
-			yield return new WaitForSeconds(_delayTimer);
 		}
 	}
 
@@ -168,7 +155,7 @@ public class EnemyAI : MonoBehaviour
 
 	private void checkForPlayer()
 	{
-		if (!playerMovment.CheckIfHiding()) { playerWasSeenHiding = false; }
+		if (!playerMovement.CheckIfHiding()) { playerWasSeenHiding = false; }
 		if (canSeePlayer())
 		{
 			lastKnownPlayerPosition = player.gameObject.transform.position;
@@ -186,10 +173,10 @@ public class EnemyAI : MonoBehaviour
 	{
 		if (agent.remainingDistance <= agent.stoppingDistance)
 		{
-			if (playerWasSeenHiding && playerMovment.CheckIfHiding())
+			if (playerWasSeenHiding && playerMovement.CheckIfHiding())
 			{
-				if (playerMovment.CheckIfInCloset()) { killPlayer(highLookPoint, 1); }
-				if (playerMovment.CheckIfUnderBed()) { killPlayer(lowLookPoint, 2); }
+				if (playerMovement.CheckIfInCloset()) { killPlayer(highLookPoint, 1); }
+				if (playerMovement.CheckIfUnderBed()) { killPlayer(lowLookPoint, 2); }
 				return;
 			}
 			delayTimer += Time.deltaTime;
@@ -221,11 +208,9 @@ public class EnemyAI : MonoBehaviour
 
 		foreach (GameObject _exit in exitPoints)
 		{
-			Debug.Log("Check Path");
 			float _dist = Vector3.Distance(transform.position, _exit.transform.position);
 			if (_dist < _closestDistance)
 			{
-				Debug.Log(_dist);
 				_closestDistance = _dist;
 				_closestExit = _exit.transform;
 			}
@@ -259,15 +244,7 @@ public class EnemyAI : MonoBehaviour
 
 	public void OnAnimationCompleted()
 	{
-		if (isLeaving)
-		{
-			isFlickering = false;
-			foreach (var _light in lightsToFlicker)
-			{
-				_light.intensity = 0.8f;
-			}
-			Destroy(gameObject);
-		}
+		if (isLeaving) { Destroy(gameObject); }
 		agent.speed = patrolSpeed;
 		currentFOV = visionWidth;
 	}
@@ -295,12 +272,12 @@ public class EnemyAI : MonoBehaviour
 		transform.eulerAngles = _eulerAngles;
 		animator.SetBool("IsKilling", true);
 		animator.SetInteger("KillType", _killType);
-		playerMovment.lockPlayer(_lookPoint, 4f);
+		playerMovement.lockPlayer(_lookPoint, 4f);
 	}
 
 	private void CallMenuOnAnimEnd()
 	{
-		playerMovment.InvokePlayerDeath();
+		playerMovement.InvokePlayerDeath();
 	}
 
 	private void OnDrawGizmos()
