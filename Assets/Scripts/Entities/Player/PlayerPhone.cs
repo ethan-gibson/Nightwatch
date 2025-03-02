@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,7 +13,7 @@ namespace Game.Entities
 		[SerializeField] private GameObject raycastCamera;
 		private PlayerInput playerInput;
 		private bool reportPrepped;
-		private RaycastHit[] scannedObjects;
+		private HashSet<AnomalyMain> scannedObjects;
 		private AudioSource audioSource;
 		[SerializeField] private AudioClip warning;
 		[SerializeField] private AudioClip goodReport;
@@ -29,6 +30,7 @@ namespace Game.Entities
 			phoneCamera = raycastCamera.GetComponent<Camera>();
 			phoneCamera.enabled = false;
 			audioSource = GetComponent<AudioSource>();
+			scannedObjects = new HashSet<AnomalyMain>();
 		}
 
 		private void FixedUpdate()
@@ -38,19 +40,29 @@ namespace Game.Entities
 
 		private void setInputActions()
 		{
-			playerInput.actions["Scan"].started += _ => prepReport();
-			playerInput.actions["DiscardScan"].started += _ => discardReport();
+			playerInput.actions["Scan"].started += OnScanPerformed;
+			playerInput.actions["DiscardScan"].started += OnDiscardScanStarted;
 		}
 
 		private void removeInputActions()
 		{
-			playerInput.actions["Scan"].started -= _ => prepReport();
-			playerInput.actions["DiscardScan"].started -= _ => discardReport();
+			playerInput.actions["Scan"].started -= OnScanPerformed;
+			playerInput.actions["DiscardScan"].started -= OnDiscardScanStarted;
 		}
 
 		private void OnDestroy()
 		{
 			removeInputActions();
+		}
+		
+		private void OnScanPerformed(InputAction.CallbackContext context)
+		{
+			prepReport();
+		}
+
+		private void OnDiscardScanStarted(InputAction.CallbackContext context)
+		{
+			discardReport();
 		}
 
 		public void PlayWarning()
@@ -63,9 +75,17 @@ namespace Game.Entities
 		{
 			if (!reportPrepped)
 			{
+				scannedObjects ??= new HashSet<AnomalyMain>();
 				reportPrepped = true;
 				Ray _ray = new Ray(raycastCamera.transform.position, raycastCamera.transform.forward * range);
-				scannedObjects = Physics.SphereCastAll(_ray, range, mask);
+				var _tempArray = Physics.SphereCastAll(_ray, range, mask);
+				foreach (var _hit in _tempArray)
+				{
+					if (!Physics.Linecast(raycastCamera.transform.position, _hit.point)) { continue; }
+					AnomalyMain _anomalyMain = _hit.collider.GetComponent<AnomalyMain>();
+					if (_anomalyMain == null) { continue; }
+					scannedObjects.Add(_anomalyMain);
+				}
 			}
 			else { report(); }
 		}
@@ -80,20 +100,15 @@ namespace Game.Entities
 		{
 			bool _goodReport = false;
 			reportPrepped = false;
-			foreach (var _hit in scannedObjects)
+			foreach (var _anomaly in scannedObjects)
 			{
-				if (!_hit.collider.CompareTag("Anomaly")) { continue; } // f it's an anomaly
-				if (!Physics.Linecast(raycastCamera.transform.position, _hit.point)) { continue; } //If it's visible
-				AnomalyMain _anomalyMain = _hit.collider.GetComponent<AnomalyMain>();
-				if (_anomalyMain == null) { continue; } //If it has a script that descends from AnomalyMain
-				if (_anomalyMain.IsChanged() == false) { continue; }
-				Debug.Log("Found a script derived from AnomalyMain: " + _anomalyMain.GetType().Name);
+				if (_anomaly.IsChanged() == false) { continue; }
 				_goodReport = true; //If we find at least one, it's valid
-				_anomalyMain.CallAnomalyReset();
+				_anomaly.CallAnomalyReset();
 			}
-			Debug.Log("report was " + _goodReport);
 			Report?.Invoke(_goodReport);
 			playAudio(_goodReport);
+			scannedObjects.Clear();
 		}
 
 		private void playAudio(bool _report)

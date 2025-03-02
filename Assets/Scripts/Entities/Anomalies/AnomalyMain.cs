@@ -33,6 +33,7 @@ namespace Game.Entities
 		protected virtual void resetAnomaly()
 		{
 			changed = false;
+			cts?.Cancel();
 			AnomalySpawnedEvent?.Invoke(-anomalyWeight);
 		}
 

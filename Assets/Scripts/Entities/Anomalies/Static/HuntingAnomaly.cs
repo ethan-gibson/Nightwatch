@@ -47,11 +47,14 @@ namespace Game.Entities
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = false;
 			skinnedMeshRenderer.enabled = false;
+			transform.position = spawnLocation;
 		}
 
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
+			agent.isStopped = false;
+			transform.position = spawnLocation;
 			agent.SetDestination(transform.position);
 			targetCollider.enabled = true;
 			activated = true;

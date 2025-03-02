@@ -388,7 +388,6 @@ MonoBehaviour:
   alertedNoise: {fileID: 8300000, guid: b2714085c20fb4bd4a19caa84c0d731b, type: 3}
   searchStarted: {fileID: 8300000, guid: 71526097820014b4eb7ae373243c2c79, type: 3}
   searchEnded: {fileID: 8300000, guid: f079307612ceb44e1ae1dc94ec646216, type: 3}
-  exitPoints: []
 --- !u!195 &2317720873077654431
 NavMeshAgent:
   m_ObjectHideFlags: 0

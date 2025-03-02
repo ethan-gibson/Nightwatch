@@ -30,6 +30,7 @@ namespace Game.Entities
 		{
 			base.resetAnomaly();
 			transform.position = normalLocation;
+			transform.rotation = normalRotation;
 		}
 
 		private async UniTask shifting()

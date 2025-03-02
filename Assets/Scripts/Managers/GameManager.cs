@@ -16,6 +16,7 @@ namespace Game.Manager
 		[SerializeField] private int maxAnomalyWeight = 15;
 		[SerializeField] private int anomalyWarningAmount = 10;
 		[SerializeField] private InGameMenu inGameMenu;
+		[SerializeField] private FlickeringLights flickeringLights;
 		private bool playerWarned;
 		private HUDManager hudManager;
 		[SerializeField] private AnomalyMain[] anomalies;
@@ -64,7 +65,8 @@ namespace Game.Manager
 		{
 			anomalyCounter += _weight;
 			Debug.Log(anomalyCounter);
-			if (anomalyCounter >= maxAnomalyWeight) { bringUpMenu(); }
+			if (anomalyCounter >= maxAnomalyWeight) { bringUpMenu(); }//lost game
+			cts?.Cancel();
 			if (anomalyCounter == anomalyWarningAmount && !playerWarned) { warnPlayer(); }
 			staticMaterial.SetFloat("_staticCoverage", (float)anomalyCounter / maxAnomalyWeight);
 		}
@@ -207,6 +209,7 @@ namespace Game.Manager
 
 			// Instantiate the hunter at the chosen spawn point
 			Instantiate(stalkerPrefab, spawnPoint.position, spawnPoint.rotation);
+			flickeringLights.StartFlickering(30);//stalker lifetime plus extra so he will lights stay flickering for a bit
 		}
 	}
 }

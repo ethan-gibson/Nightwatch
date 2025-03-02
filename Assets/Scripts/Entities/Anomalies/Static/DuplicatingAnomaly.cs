@@ -8,7 +8,8 @@ namespace Game.Entities
 		[SerializeField] private Quaternion normalRotation;
 		[SerializeField] private Vector3 duplicateLocation;
 		[SerializeField] private Quaternion duplicateRotation;
-		private GameObject duplicatedAnomaly;
+		[SerializeField] private GameObject duplicatedAnomaly;
+		private GameObject copy;
 
 		private void Awake()
 		{
@@ -19,13 +20,21 @@ namespace Game.Entities
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
-			duplicatedAnomaly = Instantiate(gameObject, duplicateLocation, duplicateRotation);
+			copy = Instantiate(duplicatedAnomaly, duplicateLocation, duplicateRotation);
+			copy.AddComponent<DuplicatedAnomalyControl>().OnCreate(gameObject);
+			copy.GetComponent<AnomalyMain>().CallChangeAnomaly();
+		}
+
+		public void CopyReported()
+		{
+			resetAnomaly();
 		}
 
 		protected override void resetAnomaly()
 		{
+			if (!copy) { return; }
 			base.resetAnomaly();
-			Destroy(duplicatedAnomaly);
+			Destroy(copy);
 		}
 		#region Editor
 
