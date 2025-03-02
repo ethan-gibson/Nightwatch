@@ -84,7 +84,6 @@ namespace Game.Entities
 					if (!Physics.Linecast(raycastCamera.transform.position, _hit.point)) { continue; }
 					AnomalyMain _anomalyMain = _hit.collider.GetComponent<AnomalyMain>();
 					if (_anomalyMain == null) { continue; }
-					Debug.Log(_anomalyMain);
 					scannedObjects.Add(_anomalyMain);
 				}
 			}
@@ -104,7 +103,6 @@ namespace Game.Entities
 			foreach (var _anomaly in scannedObjects)
 			{
 				if (_anomaly.IsChanged() == false) { continue; }
-				Debug.Log("Found a script derived from AnomalyMain: " + _anomaly.GetType().Name);
 				_goodReport = true; //If we find at least one, it's valid
 				_anomaly.CallAnomalyReset();
 			}
