@@ -16,7 +16,7 @@ namespace Game.UI
 		public void RestartGame()
 		{
 			Time.timeScale = 1;
-			SceneManager.LoadScene("AnomalyTest");
+			SceneManager.LoadScene("GameMap");
 		}
 
 		public void MainMenu()

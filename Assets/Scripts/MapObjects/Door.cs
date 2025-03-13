@@ -9,6 +9,7 @@ public class Door : MonoBehaviour, IInteractable
 	private bool isOpen;
 	[SerializeField] private float openRot;
 	[SerializeField] private float closeRot;
+	[SerializeField] private bool isClosetDoor;
 
 	public void OnStartHover()
 	{
@@ -25,7 +26,7 @@ public class Door : MonoBehaviour, IInteractable
 
 	private void OnCollisionEnter(Collision collision)
 	{
-		if (collision.gameObject.CompareTag("Anomaly") && !isOpen) { OnInteract(); }
+		if (collision.gameObject.CompareTag("Anomaly") && !isOpen && !isClosetDoor) { OnInteract(); }
 		//if door is shut and stalker hits it, open
 	}
 

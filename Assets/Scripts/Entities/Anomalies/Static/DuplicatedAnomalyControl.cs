@@ -24,6 +24,7 @@ namespace Game.Entities
         {
             Debug.Log(("Copy Reported"));
             duplicatingAnomaly.CopyReported();
+            Destroy(this);
         }
     }
 }

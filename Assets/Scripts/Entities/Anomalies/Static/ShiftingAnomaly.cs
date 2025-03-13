@@ -45,6 +45,7 @@ namespace Game.Entities
 			{
 				while (_elapsedTime < shiftTime)
 				{
+					if (_elapsedTime <= 0) { return; }
 					transform.position = Vector3.Lerp(normalLocation, shiftedLocation, _elapsedTime / shiftTime);
 					transform.rotation = Quaternion.Lerp(normalRotation, shiftedRotation, _elapsedTime / shiftTime);
 					_elapsedTime += Time.deltaTime;
@@ -53,6 +54,12 @@ namespace Game.Entities
 				transform.position = shiftedLocation;
 			}
 			catch (OperationCanceledException) { }
+		}
+
+		private bool IsValid(Quaternion quaternion)
+		{
+			return !float.IsNaN(quaternion.x) && !float.IsNaN(quaternion.y) &&
+			       !float.IsNaN(quaternion.z) && !float.IsNaN(quaternion.w);
 		}
 
 		private void OnDestroy()

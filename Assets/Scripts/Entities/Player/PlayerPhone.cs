@@ -78,13 +78,16 @@ namespace Game.Entities
 				scannedObjects ??= new HashSet<AnomalyMain>();
 				reportPrepped = true;
 				Ray _ray = new Ray(raycastCamera.transform.position, raycastCamera.transform.forward * range);
-				var _tempArray = Physics.SphereCastAll(_ray, range, mask);
+				var _tempArray = Physics.SphereCastAll(_ray, 1, mask);
 				foreach (var _hit in _tempArray)
 				{
 					if (!Physics.Linecast(raycastCamera.transform.position, _hit.point)) { continue; }
-					AnomalyMain _anomalyMain = _hit.collider.GetComponent<AnomalyMain>();
+					AnomalyMain[] _anomalyMain = _hit.collider.GetComponents<AnomalyMain>();
 					if (_anomalyMain == null) { continue; }
-					scannedObjects.Add(_anomalyMain);
+					foreach (AnomalyMain _anomaly in _anomalyMain)
+					{
+						scannedObjects.Add(_anomaly);
+					}
 				}
 			}
 			else { report(); }
