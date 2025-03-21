@@ -16,6 +16,7 @@ namespace Game.Entities
 		[SerializeField] private Transform lookPoint;
 		[SerializeField] AudioClip walkingSound;
 		[SerializeField] private AudioClip alertedSound;
+		[SerializeField] private AudioSource breathingSound;
 		private NavMeshAgent agent;
 		private Transform target;
 		private Collider targetCollider;
@@ -35,6 +36,7 @@ namespace Game.Entities
 			skinnedMeshRenderer = GetComponentInChildren<SkinnedMeshRenderer>();
 			skinnedMeshRenderer.enabled = false;
 			activated = false;
+			breathingSound.enabled = false;
 		}
 
 		private void Update()
@@ -48,8 +50,8 @@ namespace Game.Entities
 			targetCollider.enabled = false;
 			skinnedMeshRenderer.enabled = false;
 			transform.position = spawnLocation;
+			breathingSound.enabled = true;
 		}
-
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
@@ -99,6 +101,7 @@ namespace Game.Entities
 			agent.isStopped = true;
 			audioSource.Stop();
 			skinnedMeshRenderer.enabled = false;
+			breathingSound.enabled = false;
 		}
 
 		private void OnCollisionEnter(Collision _other)
