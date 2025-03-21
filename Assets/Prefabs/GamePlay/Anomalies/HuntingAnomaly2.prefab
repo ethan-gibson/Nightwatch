@@ -145,7 +145,7 @@ GameObject:
   - component: {fileID: 2679317012907526359}
   - component: {fileID: -4461161658065970805}
   m_Layer: 10
-  m_Name: SamplehuntingAnomaly
+  m_Name: HuntingAnomaly2
   m_TagString: Anomaly
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

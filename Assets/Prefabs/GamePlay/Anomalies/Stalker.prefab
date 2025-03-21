@@ -306,6 +306,7 @@ GameObject:
   - component: {fileID: 5162260404718283776}
   - component: {fileID: 5512799092692653605}
   - component: {fileID: 8145493782162998653}
+  - component: {fileID: -997082001225621377}
   m_Layer: 0
   m_Name: Stalker
   m_TagString: Anomaly
@@ -323,7 +324,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 2, z: 0}
-  m_LocalScale: {x: 1.25, y: 1.25, z: 1.25}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 944919270510672546}
@@ -556,6 +557,25 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &-997082001225621377
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7926580517754755083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 574c12cb7dfc43d4fbcc6f1101efab74, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  anomalyWeight: 0
+  lifeTime: 0
+  speed: 0
+  spawnLocation: {x: 0, y: 0, z: 0}
+  lookPoint: {fileID: 0}
+  walkingSound: {fileID: 0}
+  alertedSound: {fileID: 0}
 --- !u!1001 &3790947040463396481
 PrefabInstance:
   m_ObjectHideFlags: 0
