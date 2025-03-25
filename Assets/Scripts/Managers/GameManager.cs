@@ -57,14 +57,29 @@ namespace Game.Manager
 		private void OnDestroy()
 		{
 			foreach (var _anomaly in anomalies) { _anomaly.AnomalySpawnedEvent -= increaseAnomalyCount; }
-			player.GetComponent<PlayerMovement>().OnPlayerKilled -= CallMenu;
-			playerPhone.Report -= reportCheck;
-			countDownCts?.Cancel();
-			countDownCts?.Dispose();
-			anomalyTriggerCts?.Cancel();
-			anomalyTriggerCts?.Dispose();
-			hunterSpawnerCts?.Cancel();
-			hunterSpawnerCts?.Dispose();
+			if (player)
+			{
+				player.GetComponent<PlayerMovement>().OnPlayerKilled -= CallMenu;
+				playerPhone.Report -= reportCheck;
+			}
+			if (countDownCts != null)
+			{
+				countDownCts?.Cancel();
+				countDownCts?.Dispose();
+				countDownCts = null;
+			}
+			if (anomalyTriggerCts != null)
+			{
+				anomalyTriggerCts?.Cancel();
+				anomalyTriggerCts?.Dispose();
+				anomalyTriggerCts = null;
+			}
+			if (hunterSpawnerCts != null)
+			{
+				hunterSpawnerCts?.Cancel();
+				hunterSpawnerCts?.Dispose();
+				hunterSpawnerCts = null;
+			}
 		}
 
 		private void increaseAnomalyCount(int _weight)

@@ -45,14 +45,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7dd5b62246ecd434fb4f3c5f1ad86d58, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxAnomalyWeight: 15
-  anomalyWarningAmount: 10
+  maxAnomalyWeight: 25
+  anomalyWarningAmount: 20
   inGameMenu: {fileID: 0}
   flickeringLights: {fileID: 0}
-  anomalies:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  anomalies: []
   gameLenght: 500
   anomalyCooldown: 40
   anomalyCooldownReduction: 3
