@@ -1,4 +1,5 @@
 using UnityEngine;
+using Logger = Arti.Utilities.Logger;
 
 namespace Game.Entities
 {
@@ -11,18 +12,18 @@ namespace Game.Entities
         {
             originalObject = _original;
             duplicatingAnomaly = _original.GetComponent<DuplicatingAnomaly>();
-            if(!duplicatingAnomaly){Debug.LogError("No Script On Original Object");}
+            if(!duplicatingAnomaly){Logger.LogError("No Script On Original Object");}
         }
 
         protected override void anomalyChange()
         {
             changed = true;
-            Debug.Log("copy changes is: " + changed);
+            Logger.Log("copy changes is: " + changed);
         }
 
         protected override void resetAnomaly()
         {
-            Debug.Log(("Copy Reported"));
+            Logger.Log("Copy Reported");
             duplicatingAnomaly.CopyReported();
             Destroy(this);
         }

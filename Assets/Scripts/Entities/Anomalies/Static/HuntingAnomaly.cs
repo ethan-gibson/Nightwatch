@@ -3,6 +3,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AI;
+using Logger = Arti.Utilities.Logger;
 
 namespace Game.Entities
 {
@@ -123,7 +124,7 @@ namespace Game.Entities
 
 		private void OnDestroy()
 		{
-			Debug.Log("destroyed");
+			Logger.Log("destroyed");
 			if (cts == null) { return; }
 			cts?.Cancel();
 			cts?.Dispose();

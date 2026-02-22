@@ -5,6 +5,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Logger = Arti.Utilities.Logger;
 
 namespace Game.Entities
 {
@@ -120,7 +121,7 @@ namespace Game.Entities
 			transform.localScale = new Vector3(1, hideHeight, 1);
 			characterController.enabled = false;
 			transform.position = _underBed.position;
-			Debug.Log("Under bed");
+			Logger.Log("Under bed");
 		}
 
 		private void exitBed()
