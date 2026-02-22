@@ -306,7 +306,6 @@ GameObject:
   - component: {fileID: 5162260404718283776}
   - component: {fileID: 5512799092692653605}
   - component: {fileID: 8145493782162998653}
-  - component: {fileID: -997082001225621377}
   m_Layer: 0
   m_Name: Stalker
   m_TagString: Anomaly
@@ -344,14 +343,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0038c16c34866b4f9e25c9c0dc0f7e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Behavior::Unity.Behavior.BehaviorGraphAgent
-  m_Graph: {fileID: 11400000, guid: 430b84faedfdd41e0a0c20403d370be4, type: 2}
-  m_BlackboardVariableOverridesList: []
-  m_OriginalGraph: {fileID: 11400000, guid: 430b84faedfdd41e0a0c20403d370be4, type: 2}
+  m_Graph: {fileID: -2901557858111036668, guid: 430b84faedfdd41e0a0c20403d370be4, type: 2}
+  m_BlackboardVariableOverridesList:
+  - rid: 8405043430226657280
+  - rid: 8405043430226657281
+  - rid: 8405043430226657282
+  - rid: 8405043430226657283
+  m_OriginalGraph: {fileID: 0}
   m_IsInitialised: 0
   m_IsStarted: 0
   references:
     version: 2
-    RefIds: []
+    RefIds:
+    - rid: 8405043430226657280
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 1
+          m_Value1: 0
+        Name: Self
+        m_Value: {fileID: 7926580517754755083}
+    - rid: 8405043430226657281
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 1600186353904878957
+          m_Value1: 14638717324407603790
+        Name: HighLookPoint
+        m_Value: {fileID: 4070368845818819186}
+    - rid: 8405043430226657282
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 7134061474315912660
+          m_Value1: 9951290476660133101
+        Name: ClosetLookPoint
+        m_Value: {fileID: 4070368845818819186}
+    - rid: 8405043430226657283
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 8993910580596200941
+          m_Value1: 14318088433402434801
+        Name: UnderBedLookPoint
+        m_Value: {fileID: 1595368269658249513}
 --- !u!136 &6679779015355634370
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -384,23 +419,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 7926580517754755083}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec738f7615827b249809e6bbdf9ddef3, type: 3}
+  m_Script: {fileID: 11500000, guid: bc39a9d3aaf448dc9a9b5192672c516d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sightRange: 100
-  patrolSpeed: 1
-  chaseSpeed: 5
-  searchDuration: 0
-  visionWidth: 45
-  patrolRadius: 10
-  searchRadius: 5
-  searchDelay: 2
-  lifeTime: 20
-  highLookPoint: {fileID: 4070368845818819186}
-  lowLookPoint: {fileID: 1595368269658249513}
-  alertedNoise: {fileID: 8300000, guid: b2714085c20fb4bd4a19caa84c0d731b, type: 3}
-  searchStarted: {fileID: 8300000, guid: 71526097820014b4eb7ae373243c2c79, type: 3}
-  searchEnded: {fileID: 8300000, guid: f079307612ceb44e1ae1dc94ec646216, type: 3}
 --- !u!195 &2317720873077654431
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -569,26 +590,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &-997082001225621377
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7926580517754755083}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 574c12cb7dfc43d4fbcc6f1101efab74, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  anomalyWeight: 0
-  lifeTime: 0
-  speed: 0
-  spawnLocation: {x: 0, y: 0, z: 0}
-  lookPoint: {fileID: 0}
-  walkingSound: {fileID: 0}
-  alertedSound: {fileID: 0}
-  breathingSound: {fileID: 0}
 --- !u!1001 &3790947040463396481
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -7,16 +7,16 @@ using UnityEngine.AI;
 using Action = Unity.Behavior.Action;
 
 /// <summary>
-/// Attempts to kill the player when they are within range by stopping the agent, orienting toward the player,
-/// triggering kill animation parameters, and locking player control.
+/// Attempts a hidden kill for closet/under-bed situations when the player is hiding within kill range.
 /// </summary>
 [Serializable, GeneratePropertyBag]
-[NodeDescription(name: "TryKillPlayerAction", story: "Agent tries to kill [Player]", category: "Action", id: "45842b4b35389a221c16348a7f7f26a2")]
-public partial class TryKillPlayerAction : Action
+[NodeDescription(name: "TryKillHiddenPlayerAction", story: "Agent tries to kill hidden Player", category: "Action", id: "2c6ef5a8b7284ec3901569b6d71b6159")]
+public partial class TryKillHiddenPlayerAction : Action
 {
 	private static readonly int isKilling = Animator.StringToHash("IsKilling");
 	private static readonly int killType = Animator.StringToHash("KillType");
-	private const string defaultLookPointName = "HighLookPoint";
+	private const string highLookPointName = "HighLookPoint";
+	private const string lowLookPointName = "LowLookPoint";
 
 	/// <summary>
 	/// Target player object provided by the behavior graph blackboard.
@@ -25,50 +25,73 @@ public partial class TryKillPlayerAction : Action
 	public BlackboardVariable<GameObject> Player;
 
 	/// <summary>
-	/// Maximum distance at which this action is allowed to trigger a kill.
+	/// Maximum range for hidden-kill execution.
 	/// </summary>
 	[SerializeReference]
-	public BlackboardVariable<float> KillDistance = new(1.6f);
+	public BlackboardVariable<float> KillDistance = new(1.75f);
 
 	/// <summary>
-	/// Duration to lock player control after kill is triggered.
+	/// Duration to lock player controls after triggering a hidden kill.
 	/// </summary>
 	[SerializeReference]
 	public BlackboardVariable<float> LockDuration = new(4f);
 
 	/// <summary>
-	/// Optional look point transform for front-kill camera lock.
-	/// When unset, this action falls back to the <c>HighLookPoint</c> child and then to self transform.
+	/// Optional camera lock target used for closet-kill animations.
 	/// </summary>
 	[SerializeReference]
-	public BlackboardVariable<GameObject> LookPoint;
+	public BlackboardVariable<GameObject> ClosetLookPoint;
+
+	/// <summary>
+	/// Optional camera lock target used for under-bed kill animations.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<GameObject> UnderBedLookPoint;
 
 	private Transform cachedTransform;
+	private Transform fallbackHighLookPoint;
+	private Transform fallbackLowLookPoint;
 	private NavMeshAgent navMeshAgent;
 	private Animator animator;
-	private Transform fallbackLookPoint;
+	private Collider actorCollider;
+	private Rigidbody actorRigidbody;
 	private GameObject cachedPlayerObject;
 	private Transform cachedPlayerTransform;
 	private PlayerMovement cachedPlayerMovement;
 
 	/// <summary>
-	/// Validates range and executes the kill sequence when possible.
+	/// Evaluates hidden-kill conditions and triggers the kill sequence when valid.
 	/// </summary>
 	/// <returns>
-	/// <see cref="Node.Status.Success"/> when a kill is triggered; otherwise <see cref="Node.Status.Failure"/>.
+	/// <see cref="Node.Status.Success"/> when a hidden kill is executed; otherwise <see cref="Node.Status.Failure"/>.
 	/// </returns>
 	protected override Status OnStart()
 	{
 		if (!tryCacheAgentReferences() || !tryCachePlayerReferences()) { return Status.Failure; }
-		if (cachedPlayerMovement.CheckIfHiding()) { return Status.Failure; }
+		if (!cachedPlayerMovement.CheckIfHiding()) { return Status.Failure; }
 
-		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : 1.6f);
+		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : 1.75f);
 		float _killDistanceSqr = _killDistance * _killDistance;
 		Vector3 _offset = cachedPlayerTransform.position - cachedTransform.position;
 		if (_offset.sqrMagnitude > _killDistanceSqr) { return Status.Failure; }
 
+		int _resolvedKillType = -1;
+		Transform _resolvedLookPoint = cachedTransform;
+		if (cachedPlayerMovement.CheckIfInCloset())
+		{
+			_resolvedKillType = 1;
+			_resolvedLookPoint = resolveClosetLookPoint();
+		}
+		else if (cachedPlayerMovement.CheckIfUnderBed())
+		{
+			_resolvedKillType = 2;
+			_resolvedLookPoint = resolveUnderBedLookPoint();
+		}
+
+		if (_resolvedKillType < 0) { return Status.Failure; }
+
 		float _lockDuration = Mathf.Max(0.1f, LockDuration != null ? LockDuration.Value : 4f);
-		triggerKill(_lockDuration);
+		triggerKill(_resolvedKillType, _resolvedLookPoint, _lockDuration);
 		return Status.Success;
 	}
 
@@ -87,9 +110,9 @@ public partial class TryKillPlayerAction : Action
 	protected override void OnEnd() { }
 
 	/// <summary>
-	/// Caches agent-side references used during kill execution.
+	/// Caches components required by hidden-kill execution.
 	/// </summary>
-	/// <returns><c>true</c> when the action has a valid graph-owned <see cref="GameObject"/> context.</returns>
+	/// <returns><c>true</c> when all required references are available; otherwise <c>false</c>.</returns>
 	private bool tryCacheAgentReferences()
 	{
 		if (!GameObject) { return false; }
@@ -97,7 +120,10 @@ public partial class TryKillPlayerAction : Action
 		cachedTransform ??= GameObject.transform;
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
 		animator ??= GameObject.GetComponent<Animator>();
-		fallbackLookPoint ??= cachedTransform.Find(defaultLookPointName);
+		actorCollider ??= GameObject.GetComponent<Collider>();
+		actorRigidbody ??= GameObject.GetComponent<Rigidbody>();
+		fallbackHighLookPoint ??= cachedTransform.Find(highLookPointName);
+		fallbackLowLookPoint ??= cachedTransform.Find(lowLookPointName);
 		return true;
 	}
 
@@ -124,12 +150,14 @@ public partial class TryKillPlayerAction : Action
 	}
 
 	/// <summary>
-	/// Performs the kill sequence by stopping movement, rotating toward player, setting animator kill state,
-	/// and locking player control.
+	/// Executes hidden kill state by stopping movement, selecting animation variant, and locking player control.
 	/// </summary>
-	private void triggerKill(float _lockDuration)
+	private void triggerKill(int _resolvedKillType, Transform _lookPoint, float _lockDuration)
 	{
 		if (animator && animator.GetBool(isKilling)) { return; }
+
+		if (actorCollider) { actorCollider.enabled = false; }
+		if (actorRigidbody) { actorRigidbody.isKinematic = true; }
 
 		if (navMeshAgent)
 		{
@@ -145,21 +173,33 @@ public partial class TryKillPlayerAction : Action
 		if (animator)
 		{
 			animator.SetBool(isKilling, true);
-			animator.SetInteger(killType, 0);
+			animator.SetInteger(killType, _resolvedKillType);
 		}
 
-		cachedPlayerMovement.lockPlayer(resolveLookPoint(), _lockDuration);
+		cachedPlayerMovement.lockPlayer(_lookPoint ? _lookPoint : cachedTransform, _lockDuration);
 	}
 
 	/// <summary>
-	/// Resolves the transform used by the kill camera lock.
+	/// Resolves the look point for closet-kill camera lock.
 	/// </summary>
-	/// <returns>Assigned look point, fallback look point, or self transform in that order.</returns>
-	private Transform resolveLookPoint()
+	/// <returns>Configured closet look point, fallback high look point, or self transform.</returns>
+	private Transform resolveClosetLookPoint()
 	{
-		GameObject _configuredLookPoint = LookPoint?.Value;
+		GameObject _configuredLookPoint = ClosetLookPoint?.Value;
 		if (_configuredLookPoint) { return _configuredLookPoint.transform; }
-		if (fallbackLookPoint) { return fallbackLookPoint; }
+		if (fallbackHighLookPoint) { return fallbackHighLookPoint; }
+		return cachedTransform;
+	}
+
+	/// <summary>
+	/// Resolves the look point for under-bed kill camera lock.
+	/// </summary>
+	/// <returns>Configured under-bed look point, fallback low look point, or self transform.</returns>
+	private Transform resolveUnderBedLookPoint()
+	{
+		GameObject _configuredLookPoint = UnderBedLookPoint?.Value;
+		if (_configuredLookPoint) { return _configuredLookPoint.transform; }
+		if (fallbackLowLookPoint) { return fallbackLowLookPoint; }
 		return cachedTransform;
 	}
 }

@@ -1,0 +1,243 @@
+using System;
+using Unity.Behavior;
+using Unity.Properties;
+using UnityEngine;
+using UnityEngine.AI;
+using Action = Unity.Behavior.Action;
+
+/// <summary>
+/// Tracks stalker active lifetime and handles leave-map behavior after lifetime expiration.
+/// </summary>
+[Serializable, GeneratePropertyBag]
+[NodeDescription(name: "TickStalkerLifetimeAction", story: "Ticks stalker lifetime/leave logic", category: "Action", id: "dbfe085fba244e9b810398f02e62a772")]
+public partial class TickStalkerLifetimeAction : Action
+{
+	private static readonly int leavingHash = Animator.StringToHash("IsLeaving");
+
+	/// <summary>
+	/// Optional custom delta time. When zero or negative, <see cref="Time.deltaTime"/> is used.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> DeltaTime = new(-1f);
+
+	/// <summary>
+	/// Total active duration before the stalker transitions into leave mode.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> LifeTime = new(20f);
+
+	/// <summary>
+	/// Tag used to discover stalker exit points in the scene.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<string> ExitTag = new("StalkerEnterExit");
+
+	/// <summary>
+	/// Vertical offset applied when snapping to the final exit position before despawn.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> LeaveSnapHeightOffset = new(1.3f);
+
+	/// <summary>
+	/// Optional blackboard flag updated with current leave state.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<bool> IsLeaving;
+
+	private Transform cachedTransform;
+	private NavMeshAgent navMeshAgent;
+	private Animator animator;
+	private Collider actorCollider;
+	private GameObject[] exitPoints;
+	private string cachedExitTag;
+	private float activeTime;
+	private bool isLeaving;
+
+	/// <summary>
+	/// Caches references used by lifecycle ticking and performs the first tick.
+	/// </summary>
+	/// <returns>
+	/// <see cref="Node.Status.Success"/> when references are valid; otherwise <see cref="Node.Status.Failure"/>.
+	/// </returns>
+	protected override Status OnStart()
+	{
+		if (!tryCacheReferences()) { return Status.Failure; }
+		refreshExitPointsIfNeeded();
+
+		float _deltaTime = resolveDeltaTime();
+		return tickLifetimeStep(_deltaTime);
+	}
+
+	/// <summary>
+	/// Advances stalker lifetime and processes leave-map movement/despawn after expiry.
+	/// </summary>
+	/// <returns>
+	/// <see cref="Node.Status.Success"/> during normal operation; <see cref="Node.Status.Running"/> while leaving;
+	/// otherwise <see cref="Node.Status.Failure"/>.
+	/// </returns>
+	protected override Status OnUpdate()
+	{
+		float _deltaTime = resolveDeltaTime();
+		return tickLifetimeStep(_deltaTime);
+	}
+
+	/// <summary>
+	/// No cleanup is required for this action.
+	/// </summary>
+	protected override void OnEnd() { }
+
+	/// <summary>
+	/// Caches stalker-side components needed for lifecycle and leave logic.
+	/// </summary>
+	/// <returns><c>true</c> when the action has a valid graph-owned <see cref="GameObject"/> context.</returns>
+	private bool tryCacheReferences()
+	{
+		if (!GameObject) { return false; }
+
+		cachedTransform ??= GameObject.transform;
+		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
+		animator ??= GameObject.GetComponent<Animator>();
+		actorCollider ??= GameObject.GetComponent<Collider>();
+		return true;
+	}
+
+	/// <summary>
+	/// Resolves tick delta time for this update.
+	/// </summary>
+	/// <returns>Configured delta time when positive; otherwise <see cref="Time.deltaTime"/>.</returns>
+	private float resolveDeltaTime()
+	{
+		if (DeltaTime != null && DeltaTime.Value > 0f) { return DeltaTime.Value; }
+		return Time.deltaTime;
+	}
+
+	/// <summary>
+	/// Runs a single lifecycle update step.
+	/// </summary>
+	/// <param name="_deltaTime">Time delta used for life progression.</param>
+	/// <returns>Current node status after applying lifecycle logic.</returns>
+	private Status tickLifetimeStep(float _deltaTime)
+	{
+		if (isLeaving)
+		{
+			updateLeavingState();
+			syncLeaveFlag();
+			return Status.Running;
+		}
+
+		float _lifeTime = Mathf.Max(0f, LifeTime != null ? LifeTime.Value : 20f);
+		if (_lifeTime <= 0f)
+		{
+			syncLeaveFlag();
+			return Status.Success;
+		}
+
+		activeTime += Mathf.Max(0f, _deltaTime);
+		if (activeTime < _lifeTime)
+		{
+			syncLeaveFlag();
+			return Status.Success;
+		}
+
+		beginLeaving();
+		updateLeavingState();
+		syncLeaveFlag();
+		return Status.Running;
+	}
+
+	/// <summary>
+	/// Starts leave mode and requests navigation to the closest valid exit.
+	/// </summary>
+	private void beginLeaving()
+	{
+		if (isLeaving) { return; }
+		isLeaving = true;
+
+		if (animator) { animator.SetBool(leavingHash, true); }
+		moveToClosestExit();
+	}
+
+	/// <summary>
+	/// Refreshes cached exit points when the configured exit tag changes.
+	/// </summary>
+	private void refreshExitPointsIfNeeded()
+	{
+		string _exitTag = ExitTag != null ? ExitTag.Value : "StalkerEnterExit";
+		if (string.IsNullOrWhiteSpace(_exitTag))
+		{
+			cachedExitTag = string.Empty;
+			exitPoints = null;
+			return;
+		}
+
+		if (string.Equals(cachedExitTag, _exitTag, StringComparison.Ordinal) && exitPoints != null) { return; }
+
+		cachedExitTag = _exitTag;
+		exitPoints = GameObject.FindGameObjectsWithTag(_exitTag);
+	}
+
+	/// <summary>
+	/// Sends the agent to the closest available exit point.
+	/// </summary>
+	private void moveToClosestExit()
+	{
+		refreshExitPointsIfNeeded();
+		if (exitPoints == null || exitPoints.Length == 0) { return; }
+		if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh) { return; }
+
+		Transform _closestExit = null;
+		float _closestDistanceSqr = float.PositiveInfinity;
+		Vector3 _position = cachedTransform.position;
+
+		for (int _i = 0; _i < exitPoints.Length; _i++)
+		{
+			GameObject _exitPoint = exitPoints[_i];
+			if (!_exitPoint) { continue; }
+
+			Vector3 _delta = _exitPoint.transform.position - _position;
+			float _distanceSqr = _delta.sqrMagnitude;
+			if (_distanceSqr >= _closestDistanceSqr) { continue; }
+
+			_closestDistanceSqr = _distanceSqr;
+			_closestExit = _exitPoint.transform;
+		}
+
+		if (!_closestExit) { return; }
+
+		navMeshAgent.isStopped = false;
+		navMeshAgent.SetDestination(_closestExit.position);
+	}
+
+	/// <summary>
+	/// Updates leave progress and despawns the stalker once it reaches its exit.
+	/// </summary>
+	private void updateLeavingState()
+	{
+		if (!GameObject) { return; }
+
+		if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh)
+		{
+			UnityEngine.Object.Destroy(GameObject);
+			return;
+		}
+
+		if (navMeshAgent.pathPending) { return; }
+		if (navMeshAgent.remainingDistance > navMeshAgent.stoppingDistance) { return; }
+
+		navMeshAgent.velocity = Vector3.zero;
+		navMeshAgent.isStopped = true;
+		if (actorCollider) { actorCollider.enabled = false; }
+
+		float _leaveOffset = LeaveSnapHeightOffset != null ? LeaveSnapHeightOffset.Value : 1.3f;
+		cachedTransform.position = navMeshAgent.destination + new Vector3(0f, _leaveOffset, 0f);
+		UnityEngine.Object.Destroy(GameObject);
+	}
+
+	/// <summary>
+	/// Writes the current leave state to the optional blackboard output variable.
+	/// </summary>
+	private void syncLeaveFlag()
+	{
+		if (IsLeaving != null) { IsLeaving.Value = isLeaving; }
+	}
+}

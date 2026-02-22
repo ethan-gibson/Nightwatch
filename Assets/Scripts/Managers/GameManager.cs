@@ -116,7 +116,7 @@ namespace Game.Manager
 				if (playerPhone) { playerPhone.Report += reportCheck; }
 			}
 
-			EnsureExistingStalkerRuntimeBridges();
+			EnsureExistingStalkerGraphSetup();
 			hudManager?.UpdateGameTime(hour.ToString(CultureInfo.InvariantCulture));
 			refreshDirectorRates();
 			countDown().Forget();
@@ -360,21 +360,13 @@ namespace Game.Manager
 		{
 			if (activeStalkerInstance != null) { return true; }
 
-			EnemyAI[] existingStalkers = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
-			if (existingStalkers.Length > 0)
-			{
-				activeStalkerInstance = existingStalkers[0].gameObject;
-				return true;
-			}
-
 			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag("Anomaly");
 			foreach (GameObject anomalyObject in activeAnomalies)
 			{
 				if (anomalyObject == null) { continue; }
 				if (!anomalyObject.name.Contains("Stalker", StringComparison.OrdinalIgnoreCase)) { continue; }
 
-				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null ||
-				                          anomalyObject.GetComponent<HuntingAnomaly>() != null;
+				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null;
 				if (!isStalkerCandidate) { continue; }
 
 				activeStalkerInstance = anomalyObject;
@@ -416,16 +408,19 @@ namespace Game.Manager
 		{
 			if (spawnedStalker == null) { return; }
 
-			if (spawnedStalker.GetComponent<EnemyAI>() == null)
+			if (spawnedStalker.GetComponent("BehaviorGraphAgent") == null)
 			{
-				spawnedStalker.AddComponent<EnemyAI>();
-				Logger.LogWarning("Spawned stalker was missing EnemyAI. Added runtime bridge component automatically.");
+				Logger.LogError("Spawned stalker is missing BehaviorGraphAgent and cannot run stalker behavior.");
 			}
 
-			if (spawnedStalker.TryGetComponent(out HuntingAnomaly legacyHuntingAnomaly) && legacyHuntingAnomaly.enabled) { legacyHuntingAnomaly.enabled = false; }
+			if (spawnedStalker.GetComponent<StalkerAnimationEvents>() == null)
+			{
+				spawnedStalker.AddComponent<StalkerAnimationEvents>();
+				Logger.LogWarning("Spawned stalker was missing StalkerAnimationEvents. Added animation event receiver automatically.");
+			}
 		}
 
-		private static void EnsureExistingStalkerRuntimeBridges()
+		private static void EnsureExistingStalkerGraphSetup()
 		{
 			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag("Anomaly");
 			foreach (GameObject anomalyObject in activeAnomalies)
@@ -433,8 +428,7 @@ namespace Game.Manager
 				if (anomalyObject == null) { continue; }
 				if (!anomalyObject.name.Contains("Stalker", StringComparison.OrdinalIgnoreCase)) { continue; }
 
-				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null ||
-				                          anomalyObject.GetComponent<HuntingAnomaly>() != null;
+				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null;
 				if (!isStalkerCandidate) { continue; }
 
 				ConfigureSpawnedStalker(anomalyObject);
@@ -445,8 +439,8 @@ namespace Game.Manager
 		{
 			float pressure = getDirectorPressure01();
 
-			float legacyAnomalyFloor = Mathf.Max(2f, baseAnomalyCooldown - (Mathf.Max(0f, anomalyCooldownReduction) * 6f));
-			float anomalyFloor = Mathf.Max(2f, Mathf.Min(minimumAnomalyCooldown, legacyAnomalyFloor));
+			float derivedAnomalyFloor = Mathf.Max(2f, baseAnomalyCooldown - (Mathf.Max(0f, anomalyCooldownReduction) * 6f));
+			float anomalyFloor = Mathf.Max(2f, Mathf.Min(minimumAnomalyCooldown, derivedAnomalyFloor));
 			anomalyFloor = Mathf.Clamp(anomalyFloor, 2f, baseAnomalyCooldown);
 
 			float stalkerFloor = Mathf.Clamp(Mathf.Max(10f, minimumStalkerCooldown), 10f, baseStalkerCooldown);
