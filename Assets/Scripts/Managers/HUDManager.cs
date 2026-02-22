@@ -1,4 +1,4 @@
-using Game.Core;
+using Arti.Utilities;
 using UnityEngine;
 using TMPro;
 

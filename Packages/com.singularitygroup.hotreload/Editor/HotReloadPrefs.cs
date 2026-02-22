@@ -5,6 +5,7 @@ using JetBrains.Annotations;
 using SingularityGroup.HotReload.Editor.Cli;
 using UnityEditor;
 using UnityEngine;
+using RuntimeLocalization = SingularityGroup.HotReload.Localization;
 
 namespace SingularityGroup.HotReload.Editor {
     internal static class HotReloadPrefs {
@@ -21,6 +22,7 @@ namespace SingularityGroup.HotReload.Editor {
         private const string RefreshManuallyTipCachedKey = "HotReloadWindow.RefreshManuallyTipCachedKey";
         private const string ShowLoginCachedKey = "HotReloadWindow.ShowLoginCachedKey";
         private const string ConfigurationKey = "HotReloadWindow.Configuration";
+        private const string AvdancedKey = "HotReloadWindow.Avdanced";
         private const string ShowPromoCodesCachedKey = "HotReloadWindow.ShowPromoCodesCached";
         private const string ShowOnDeviceKey = "HotReloadWindow.ShowOnDevice";
         private const string ShowChangelogKey = "HotReloadWindow.ShowChangelog";
@@ -33,14 +35,18 @@ namespace SingularityGroup.HotReload.Editor {
         private const string PatchesCollapseKey = "HotReloadWindow.PatchesCollapse";
         private const string PatchesGroupAllKey = "HotReloadWindow.PatchesGroupAll";
         private const string LaunchOnEditorStartKey = "HotReloadWindow.LaunchOnEditorStart";
+        private const string AutoClearTimelineKey = "HotReloadWindow.AutoClearTimeline";
         private const string AutoRecompileUnsupportedChangesKey = "HotReloadWindow.AutoRecompileUnsupportedChanges";
         private const string AutoRecompilePartiallyUnsupportedChangesKey = "HotReloadWindow.AutoRecompilePartiallyUnsupportedChanges";
+        private const string DisplayNewMonobehaviourMethodsAsPartiallySupportedKey = "HotReloadWindow.DisplayNewMonobehaviourMethodsAsPartiallySupported";
         private const string ShowNotificationsKey = "HotReloadWindow.ShowNotifications";
         private const string ShowPatchingNotificationsKey = "HotReloadWindow.ShowPatchingNotifications";
         private const string ShowCompilingUnsupportedNotificationsKey = "HotReloadWindow.ShowCompilingUnsupportedNotifications";
         private const string AutoRecompileUnsupportedChangesImmediatelyKey = "HotReloadWindow.AutoRecompileUnsupportedChangesImmediately";
         private const string AutoRecompileUnsupportedChangesOnExitPlayModeKey = "HotReloadWindow.AutoRecompileUnsupportedChangesOnExitPlayMode";
         private const string AutoRecompileUnsupportedChangesInPlayModeKey = "HotReloadWindow.AutoRecompileUnsupportedChangesInPlayMode";
+        private const string AutoRecompileUnsupportedChangesInEditModeKey = "HotReloadWindow.AutoRecompileUnsupportedChangesInEditMode";
+        private const string AutoRecompileInspectorFieldsEditKey = "HotReloadWindow.AutoRecompileInspectorFieldsEdit";
         private const string AllowDisableUnityAutoRefreshKey = "HotReloadWindow.AllowDisableUnityAutoRefresh";
         private const string DefaultAutoRefreshKey = "HotReloadWindow.DefaultAutoRefresh";
         private const string DefaultAutoRefreshModeKey = "HotReloadWindow.DefaultAutoRefreshMode";
@@ -52,6 +58,9 @@ namespace SingularityGroup.HotReload.Editor {
         private const string AllAssetChangesKey = "HotReloadWindow.AllAssetChanges";
         private const string IncludeShaderChangesKey = "HotReloadWindow.IncludeShaderChanges";
         private const string DisableConsoleWindowKey = "HotReloadWindow.DisableConsoleWindow";
+        private const string DisableDetailedErrorReportingKey = "HotReloadWindow.DisableDetailedErrorReporting";
+        private const string DebuggerCompatibilityEnabledKey = "HotReloadWindow.DebuggerCompatibilityEnabled";
+        private const string PauseHotReloadInEditModeKey = "HotReloadWindow.PauseHotReloadInEditMode";
         private const string RedeemLicenseEmailKey = "HotReloadWindow.RedeemLicenseEmail";
         private const string RedeemLicenseInvoiceKey = "HotReloadWindow.RedeemLicenseInvoice";
         private const string RunTabEventsSuggestionsFoldoutKey = "HotReloadWindow.RunTabEventsSuggestionsFoldout";
@@ -62,9 +71,16 @@ namespace SingularityGroup.HotReload.Editor {
         private const string RunTabUndetectedPatchesFilterKey = "HotReloadWindow.RunTabUndetectedPatchesFilter";
         private const string RunTabAppliedPatchesFilterKey = "HotReloadWindow.RunTabAppliedPatchesFilter";
         private const string RecompileDialogueShownKey = "HotReloadWindow.RecompileDialogueShown";
+        private const string ApplyFieldInitiailzerEditsToExistingClassInstancesKey = "HotReloadWindow.ApplyFieldInitiailzerEditsToExistingClassInstances";
+        private const string LoggedInlinedMethodsDialogueKey = "HotReloadWindow.LoggedInlinedMethodsDialogue";
         private const string OpenedWindowAtLeastOnceKey = "HotReloadWindow.OpenedWindowAtLeastOnce";
-
+        private const string DeactivateHotReloadKey = "HotReloadWindow.DeactivateHotReload";
+        private const string ActiveLocaleKey = "HotReloadWindow.ActiveLocale";
         public const string DontShowPromptForDownloadKey = "ServerDownloader.DontShowPromptForDownload";
+        public const string DebuggerOnboardingShownKey = "HotReloadWindow.DebuggerOnboardingShownKey";
+        #if UNITY_EDITOR_WIN
+        public const string UseWatchmanKey = "ServerDownloader.UseWatchman";
+        #endif
 
         [Obsolete] public const string AllowHttpSettingCacheKey = "HotReloadWindow.AllowHttpSettingCacheKey";
         [Obsolete] public const string AutoRefreshSettingCacheKey = "HotReloadWindow.AutoRefreshSettingCacheKey";
@@ -159,6 +175,11 @@ namespace SingularityGroup.HotReload.Editor {
         public static bool ShowConfiguration {
             get { return EditorPrefs.GetBool(ConfigurationKey, true); }
             set { EditorPrefs.SetBool(ConfigurationKey, value); }
+        }
+        
+        public static bool ShowAdvanced {
+            get { return EditorPrefs.GetBool(AvdancedKey, false); }
+            set { EditorPrefs.SetBool(AvdancedKey, value); }
         }
 
         public static bool ShowPromoCodes {
@@ -261,6 +282,11 @@ namespace SingularityGroup.HotReload.Editor {
             get { return EditorPrefs.GetBool(LaunchOnEditorStartKey, false); }
             set { EditorPrefs.SetBool(LaunchOnEditorStartKey, value); }
         }
+        
+        public static bool AutoClearTimeline {
+            get { return EditorPrefs.GetBool(AutoClearTimelineKey, true); }
+            set { EditorPrefs.SetBool(AutoClearTimelineKey, value); }
+        }
 
         public static bool AutoRecompileUnsupportedChanges {
             get { return EditorPrefs.GetBool(AutoRecompileUnsupportedChangesKey, false); }
@@ -270,6 +296,11 @@ namespace SingularityGroup.HotReload.Editor {
         public static bool AutoRecompilePartiallyUnsupportedChanges {
             get { return EditorPrefs.GetBool(AutoRecompilePartiallyUnsupportedChangesKey, false); }
             set { EditorPrefs.SetBool(AutoRecompilePartiallyUnsupportedChangesKey, value); }
+        }
+        
+        public static bool DisplayNewMonobehaviourMethodsAsPartiallySupported {
+            get { return EditorPrefs.GetBool(DisplayNewMonobehaviourMethodsAsPartiallySupportedKey, false); }
+            set { EditorPrefs.SetBool(DisplayNewMonobehaviourMethodsAsPartiallySupportedKey, value); }
         }
 
         public static bool ShowNotifications {
@@ -300,6 +331,16 @@ namespace SingularityGroup.HotReload.Editor {
         public static bool AutoRecompileUnsupportedChangesInPlayMode {
             get { return EditorPrefs.GetBool(AutoRecompileUnsupportedChangesInPlayModeKey, false); }
             set { EditorPrefs.SetBool(AutoRecompileUnsupportedChangesInPlayModeKey, value); }
+        }
+        
+        public static bool AutoRecompileInspectorFieldsEdit {
+            get { return EditorPrefs.GetBool(AutoRecompileInspectorFieldsEditKey, false); }
+            set { EditorPrefs.SetBool(AutoRecompileInspectorFieldsEditKey, value); }
+        }
+        
+        public static bool AutoRecompileUnsupportedChangesInEditMode {
+            get { return EditorPrefs.GetBool(AutoRecompileUnsupportedChangesInEditModeKey, true); }
+            set { EditorPrefs.SetBool(AutoRecompileUnsupportedChangesInEditModeKey, value); }
         }
 
         public static bool AllowDisableUnityAutoRefresh {
@@ -430,6 +471,54 @@ namespace SingularityGroup.HotReload.Editor {
             }
             string[] rgbaParts = ser.Split(rgbaDelimiter.ToCharArray());
             return new Color(float.Parse(rgbaParts[0]), float.Parse(rgbaParts[1]),float.Parse(rgbaParts[2]),float.Parse(rgbaParts[3]));
+        }
+        
+        [Obsolete("was not implemented")]
+        public static bool ApplyFieldInitiailzerEditsToExistingClassInstances {
+            get { return EditorPrefs.GetBool(ApplyFieldInitiailzerEditsToExistingClassInstancesKey); }
+            set { EditorPrefs.SetBool(ApplyFieldInitiailzerEditsToExistingClassInstancesKey, value); }
+        }
+        
+        public static bool LoggedInlinedMethodsDialogue {
+            get { return EditorPrefs.GetBool(LoggedInlinedMethodsDialogueKey); }
+            set { EditorPrefs.SetBool(LoggedInlinedMethodsDialogueKey, value); }
+        }
+        
+        public static bool DeactivateHotReload {
+            get { return EditorPrefs.GetBool(DeactivateHotReloadKey); }
+            set { EditorPrefs.SetBool(DeactivateHotReloadKey, value); }
+        }
+        
+        public static bool DisableDetailedErrorReporting {
+            get { return EditorPrefs.GetBool(DisableDetailedErrorReportingKey, false); }
+            set { EditorPrefs.SetBool(DisableDetailedErrorReportingKey, value); }
+        }
+        
+        public static bool PauseHotReloadInEditMode {
+            get { return EditorPrefs.GetBool(PauseHotReloadInEditModeKey, false); }
+            set { EditorPrefs.SetBool(PauseHotReloadInEditModeKey, value); }
+        }
+        
+        public static bool AutoDisableHotReloadWithDebugger {
+            get { return EditorPrefs.GetBool(DebuggerCompatibilityEnabledKey, true); }
+            set { EditorPrefs.SetBool(DebuggerCompatibilityEnabledKey, value); }
+        }
+        
+        public static string ActiveLocale {
+            get { return EditorPrefs.GetString(ActiveLocaleKey, PackageConst.DefaultLocale); }
+            set { EditorPrefs.SetString(ActiveLocaleKey, value); }
+        }
+        
+        #if UNITY_EDITOR_WIN
+        public static bool UseWatchman {
+            get { return EditorPrefs.GetBool(UseWatchmanKey, PackageConst.DefaultLocale == RuntimeLocalization.Locale.English); }
+            set { EditorPrefs.SetBool(UseWatchmanKey, value); }
+        }
+        #endif
+        
+        public static bool DebuggerOnboardingShown {
+            get { return EditorPrefs.GetBool(DebuggerOnboardingShownKey); }
+            set { EditorPrefs.SetBool(DebuggerOnboardingShownKey, value); }
         }
     }
 }
