@@ -6,7 +6,8 @@
         "Game.Entities",
         "UniTask",
         "Unity.TextMeshPro",
-        "Game.UI"
+        "Game.UI",
+        "Unity.Behavior"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

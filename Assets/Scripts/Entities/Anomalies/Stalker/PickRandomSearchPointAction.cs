@@ -12,6 +12,9 @@ using Action = Unity.Behavior.Action;
 [NodeDescription(name: "PickRandomSearchPointAction", story: "Picks a random point to search", category: "Action", id: "3b8694717de0cfa9a0ec58fb377f0e10")]
 public partial class PickRandomSearchPointAction : Action
 {
+	private const string searchPointVariableName = "SearchPoint";
+	private const string lastKnownPositionVariableName = "LastKnownPosition";
+
 	/// <summary>
 	/// Radius around the search origin used for random search point sampling.
 	/// </summary>
@@ -92,9 +95,9 @@ public partial class PickRandomSearchPointAction : Action
 			lastKnownPositionVariable = null;
 		}
 
-		if (searchPointVariable == null && !graphAgent.GetVariable("SearchPoint", out searchPointVariable)) { return false; }
+		if (searchPointVariable == null && !graphAgent.GetVariable(searchPointVariableName, out searchPointVariable)) { return false; }
 
-		if (lastKnownPositionVariable == null) { graphAgent.GetVariable("LastKnownPosition", out lastKnownPositionVariable); }
+		if (lastKnownPositionVariable == null) { graphAgent.GetVariable(lastKnownPositionVariableName, out lastKnownPositionVariable); }
 
 		return true;
 	}

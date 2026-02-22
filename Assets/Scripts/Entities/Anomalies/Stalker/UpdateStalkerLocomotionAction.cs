@@ -44,6 +44,8 @@ public partial class UpdateStalkerLocomotionAction : Action
 	private AudioSource walkingAudioSource;
 	private string cachedAnimatorParameterName;
 	private int cachedAnimatorParameterHash;
+	private float lastAnimatorSpeedValue;
+	private bool hasAnimatorSpeedValue;
 
 	/// <summary>
 	/// Applies one locomotion output update from the current <see cref="NavMeshAgent"/> state.
@@ -55,7 +57,7 @@ public partial class UpdateStalkerLocomotionAction : Action
 	{
 		if (!tryCacheReferences()) { return Status.Failure; }
 
-		float _velocityMagnitude = navMeshAgent ? navMeshAgent.velocity.magnitude : 0f;
+		float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
 
 		if (UpdateAnimatorSpeed != null && UpdateAnimatorSpeed.Value && animator)
 		{
@@ -67,15 +69,23 @@ public partial class UpdateStalkerLocomotionAction : Action
 			{
 				cachedAnimatorParameterName = _parameterName;
 				cachedAnimatorParameterHash = Animator.StringToHash(_parameterName);
+				hasAnimatorSpeedValue = false;
 			}
 
-			animator.SetFloat(cachedAnimatorParameterHash, _velocityMagnitude);
+			float _velocityMagnitude = Mathf.Sqrt(_velocitySqrMagnitude);
+			if (!hasAnimatorSpeedValue || !Mathf.Approximately(_velocityMagnitude, lastAnimatorSpeedValue))
+			{
+				lastAnimatorSpeedValue = _velocityMagnitude;
+				hasAnimatorSpeedValue = true;
+				animator.SetFloat(cachedAnimatorParameterHash, _velocityMagnitude);
+			}
 		}
 
 		if (ControlWalkingAudio != null && ControlWalkingAudio.Value && walkingAudioSource)
 		{
 			float _threshold = Mathf.Max(0f, WalkingAudioThreshold != null ? WalkingAudioThreshold.Value : 0.1f);
-			if (_velocityMagnitude > _threshold)
+			float _thresholdSqr = _threshold * _threshold;
+			if (_velocitySqrMagnitude > _thresholdSqr)
 			{
 				if (!walkingAudioSource.isPlaying) { walkingAudioSource.Play(); }
 			}

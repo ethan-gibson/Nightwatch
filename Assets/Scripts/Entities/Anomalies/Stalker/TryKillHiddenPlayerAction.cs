@@ -17,6 +17,7 @@ public partial class TryKillHiddenPlayerAction : Action
 	private static readonly int killType = Animator.StringToHash("KillType");
 	private const string highLookPointName = "HighLookPoint";
 	private const string lowLookPointName = "LowLookPoint";
+	private const string playerTag = "Player";
 
 	/// <summary>
 	/// Target player object provided by the behavior graph blackboard.
@@ -68,6 +69,7 @@ public partial class TryKillHiddenPlayerAction : Action
 	protected override Status OnStart()
 	{
 		if (!tryCacheAgentReferences() || !tryCachePlayerReferences()) { return Status.Failure; }
+		if (animator && animator.GetBool(isKilling)) { return Status.Failure; }
 		if (!cachedPlayerMovement.CheckIfHiding()) { return Status.Failure; }
 
 		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : 1.75f);
@@ -136,7 +138,8 @@ public partial class TryKillHiddenPlayerAction : Action
 	private bool tryCachePlayerReferences()
 	{
 		GameObject _playerObject = Player?.Value;
-		if (!_playerObject) { _playerObject = GameObject.FindGameObjectWithTag("Player"); }
+		if (!_playerObject) { _playerObject = cachedPlayerObject; }
+		if (!_playerObject) { _playerObject = GameObject.FindGameObjectWithTag(playerTag); }
 		if (!_playerObject) { return false; }
 
 		if (!ReferenceEquals(cachedPlayerObject, _playerObject))
@@ -154,8 +157,6 @@ public partial class TryKillHiddenPlayerAction : Action
 	/// </summary>
 	private void triggerKill(int _resolvedKillType, Transform _lookPoint, float _lockDuration)
 	{
-		if (animator && animator.GetBool(isKilling)) { return; }
-
 		if (actorCollider) { actorCollider.enabled = false; }
 		if (actorRigidbody) { actorRigidbody.isKinematic = true; }
 

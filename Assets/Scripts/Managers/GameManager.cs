@@ -6,6 +6,8 @@ using Arti.Utilities;
 using Cysharp.Threading.Tasks;
 using Game.Entities;
 using UnityEngine;
+using Unity.Behavior;
+using UnityEngine.Serialization;
 using Game.UI;
 using Random = UnityEngine.Random;
 using Logger = Arti.Utilities.Logger;
@@ -14,6 +16,14 @@ namespace Game.Manager
 {
 	public class GameManager : InstanceFactory<GameManager>
 	{
+		private static readonly int staticCoverageShaderId = Shader.PropertyToID("_staticCoverage");
+		private const string stalkerEnterExitTag = "StalkerEnterExit";
+		private const string anomalyTag = "Anomaly";
+		private const string stalkerNameToken = "Stalker";
+		private const string playerTag = "Player";
+		private const float stalkerScanInterval = 0.5f;
+		private static readonly WaitForSeconds statusTextDuration = new(3f);
+
 		[SerializeField]
 		private int maxAnomalyWeight = 15;
 		[SerializeField]
@@ -33,7 +43,8 @@ namespace Game.Manager
 		private GameObject stalkerPrefab;
 
 		[SerializeField]
-		private float gameLenght = 360f;
+		[FormerlySerializedAs("gameLenght")]
+		private float gameLength = 360f;
 		[SerializeField]
 		private float anomalyCooldown = 40f;
 		[SerializeField]
@@ -72,6 +83,7 @@ namespace Game.Manager
 		private float baseAnomalyCooldown;
 		private float baseStalkerCooldown;
 		private float lastStalkerSpawnTime = Mathf.NegativeInfinity;
+		private float nextStalkerScanTime;
 
 		private HUDManager hudManager;
 		private Transform player;
@@ -80,9 +92,9 @@ namespace Game.Manager
 		private GameObject activeStalkerInstance;
 		private GameObject[] stalkerEntryExitPoints;
 
-		private CancellationTokenSource countDownCts;
+		private CancellationTokenSource countdownCts;
 		private CancellationTokenSource anomalyTriggerCts;
-		private CancellationTokenSource hunterSpawnerCts;
+		private CancellationTokenSource stalkerSpawnerCts;
 
 		protected override void Awake()
 		{
@@ -90,7 +102,7 @@ namespace Game.Manager
 			if (Instance != this) { return; }
 
 			hudManager = GetComponent<HUDManager>();
-			gameLenght = Mathf.Max(30f, gameLenght);
+			gameLength = Mathf.Max(30f, gameLength);
 			baseAnomalyCooldown = Mathf.Max(2f, anomalyCooldown);
 			baseStalkerCooldown = Mathf.Max(10f, stalkerCooldown);
 			anomalyCooldown = baseAnomalyCooldown;
@@ -99,14 +111,14 @@ namespace Game.Manager
 
 		private void Start()
 		{
-			stalkerEntryExitPoints = GameObject.FindGameObjectsWithTag("StalkerEnterExit");
+			stalkerEntryExitPoints = GameObject.FindGameObjectsWithTag(stalkerEnterExitTag);
 			anomalies = FindObjectsByType<AnomalyMain>(FindObjectsSortMode.None);
 			foreach (AnomalyMain _anomaly in anomalies)
 			{
 				if (_anomaly) { _anomaly.AnomalySpawnedEvent += increaseAnomalyCount; }
 			}
 
-			player = GameObject.FindGameObjectWithTag("Player")?.transform;
+			player = GameObject.FindGameObjectWithTag(playerTag)?.transform;
 			if (player)
 			{
 				playerMovement = player.GetComponent<PlayerMovement>();
@@ -116,12 +128,12 @@ namespace Game.Manager
 				if (playerPhone) { playerPhone.Report += reportCheck; }
 			}
 
-			EnsureExistingStalkerGraphSetup();
+			ensureExistingStalkerGraphSetup();
 			hudManager?.UpdateGameTime(hour.ToString(CultureInfo.InvariantCulture));
 			refreshDirectorRates();
-			countDown().Forget();
-			anomalyTrigger().Forget();
-			hunterSpawner().Forget();
+			runCountdownLoop().Forget();
+			runAnomalyLoop().Forget();
+			runStalkerLoop().Forget();
 		}
 
 		protected override void OnDestroy()
@@ -143,12 +155,12 @@ namespace Game.Manager
 
 		private void stopDirectorLoops()
 		{
-			countDownCts.Reset();
+			countdownCts.Reset();
 			anomalyTriggerCts.Reset();
-			hunterSpawnerCts.Reset();
-			countDownCts = null;
+			stalkerSpawnerCts.Reset();
+			countdownCts = null;
 			anomalyTriggerCts = null;
-			hunterSpawnerCts = null;
+			stalkerSpawnerCts = null;
 		}
 
 		private void increaseAnomalyCount(int _weight)
@@ -158,7 +170,7 @@ namespace Game.Manager
 			int scoreCap = Mathf.Max(1, maxAnomalyWeight);
 			anomalyCounter = Mathf.Clamp(anomalyCounter + _weight, 0, scoreCap);
 
-			if (staticMaterial) { staticMaterial.SetFloat("_staticCoverage", (float)anomalyCounter / scoreCap); }
+			if (staticMaterial) { staticMaterial.SetFloat(staticCoverageShaderId, (float)anomalyCounter / scoreCap); }
 
 			if (anomalyCounter >= scoreCap)
 			{
@@ -226,7 +238,7 @@ namespace Game.Manager
 		{
 			if (hudManager == null) { yield break; }
 			hudManager.SetReportText("WARNING: TOO MANY ANOMALIES", Color.red);
-			yield return new WaitForSeconds(3f);
+			yield return statusTextDuration;
 			hudManager.SetReportText("", Color.black);
 		}
 
@@ -237,32 +249,33 @@ namespace Game.Manager
 			if (_check) { hudManager.SetReportText("Anomalies Reported", Color.green); }
 			else { hudManager.SetReportText("No Anomalies Found", Color.red); }
 
-			yield return new WaitForSeconds(3f);
+			yield return statusTextDuration;
 			hudManager.SetReportText("", Color.black);
 		}
 
-		private async UniTask countDown()
+		private async UniTask runCountdownLoop()
 		{
-			CancellationToken cancellationToken = resetToken(ref countDownCts).Token;
-			float hourLength = Mathf.Max(1f, gameLenght / 6f);
+			CancellationToken cancellationToken = resetToken(ref countdownCts).Token;
+			float hourLength = Mathf.Max(1f, gameLength / 6f);
 			float nextHourTimestamp = hourLength;
 
 			try
 			{
 				while (!gameEnded)
 				{
-					elapsedGameTime += Time.deltaTime;
-					reportPressure = Mathf.Max(0f, reportPressure - (Mathf.Max(0f, reportPressureDecayPerSecond) * Time.deltaTime));
+					float _deltaTime = Time.deltaTime;
+					elapsedGameTime += _deltaTime;
+					reportPressure = Mathf.Max(0f, reportPressure - (Mathf.Max(0f, reportPressureDecayPerSecond) * _deltaTime));
 					refreshDirectorRates();
 
 					if (elapsedGameTime >= nextHourTimestamp && hour < 6f)
 					{
 						hour += 1f;
-						hudManager?.UpdateGameTime(hour.ToString());
+						hudManager?.UpdateGameTime(hour.ToString(CultureInfo.InvariantCulture));
 						nextHourTimestamp += hourLength;
 					}
 
-					if (elapsedGameTime >= gameLenght)
+					if (elapsedGameTime >= gameLength)
 					{
 						bringUpMenu("Anomalies Defeated");
 						return;
@@ -274,7 +287,7 @@ namespace Game.Manager
 			catch (OperationCanceledException) { }
 		}
 
-		private async UniTask anomalyTrigger()
+		private async UniTask runAnomalyLoop()
 		{
 			CancellationToken cancellationToken = resetToken(ref anomalyTriggerCts).Token;
 
@@ -319,9 +332,9 @@ namespace Game.Manager
 			return false;
 		}
 
-		private async UniTask hunterSpawner()
+		private async UniTask runStalkerLoop()
 		{
-			CancellationToken cancellationToken = resetToken(ref hunterSpawnerCts).Token;
+			CancellationToken cancellationToken = resetToken(ref stalkerSpawnerCts).Token;
 
 			try
 			{
@@ -337,7 +350,7 @@ namespace Game.Manager
 					}
 
 					if (gameEnded) { return; }
-					SpawnHunter();
+					spawnStalker();
 				}
 			}
 			catch (OperationCanceledException) { }
@@ -353,21 +366,21 @@ namespace Game.Manager
 		private void tryTriggerEmergencyStalkerSpawn()
 		{
 			if (!shouldForceStalkerSpawn()) { return; }
-			SpawnHunter();
+			spawnStalker();
 		}
 
 		private bool hasActiveStalker()
 		{
-			if (activeStalkerInstance != null) { return true; }
+			if (activeStalkerInstance) { return true; }
+			if (Time.time < nextStalkerScanTime) { return false; }
+			nextStalkerScanTime = Time.time + stalkerScanInterval;
 
-			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag("Anomaly");
+			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag(anomalyTag);
 			foreach (GameObject anomalyObject in activeAnomalies)
 			{
 				if (anomalyObject == null) { continue; }
-				if (!anomalyObject.name.Contains("Stalker", StringComparison.OrdinalIgnoreCase)) { continue; }
-
-				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null;
-				if (!isStalkerCandidate) { continue; }
+				if (!anomalyObject.name.Contains(stalkerNameToken, StringComparison.OrdinalIgnoreCase)) { continue; }
+				if (!anomalyObject.TryGetComponent<BehaviorGraphAgent>(out _)) { continue; }
 
 				activeStalkerInstance = anomalyObject;
 				return true;
@@ -376,12 +389,12 @@ namespace Game.Manager
 			return false;
 		}
 
-		private bool SpawnHunter()
+		private bool spawnStalker()
 		{
 			if (gameEnded) { return false; }
 			if (stalkerPrefab == null)
 			{
-				Logger.LogError("Hunter prefab is not assigned!");
+				Logger.LogError("Stalker prefab is not assigned!");
 				return false;
 			}
 
@@ -396,7 +409,7 @@ namespace Game.Manager
 			int randomIndex = Random.Range(0, stalkerEntryExitPoints.Length);
 			Transform spawnPoint = stalkerEntryExitPoints[randomIndex].transform;
 			GameObject spawnedStalker = Instantiate(stalkerPrefab, spawnPoint.position, spawnPoint.rotation);
-			ConfigureSpawnedStalker(spawnedStalker);
+			configureSpawnedStalker(spawnedStalker);
 			activeStalkerInstance = spawnedStalker;
 			lastStalkerSpawnTime = Time.time;
 			reportPressure = Mathf.Max(0f, reportPressure - 0.12f);
@@ -404,34 +417,29 @@ namespace Game.Manager
 			return true;
 		}
 
-		private static void ConfigureSpawnedStalker(GameObject spawnedStalker)
+		private static void configureSpawnedStalker(GameObject spawnedStalker)
 		{
 			if (spawnedStalker == null) { return; }
 
-			if (spawnedStalker.GetComponent("BehaviorGraphAgent") == null)
-			{
-				Logger.LogError("Spawned stalker is missing BehaviorGraphAgent and cannot run stalker behavior.");
-			}
+			if (!spawnedStalker.TryGetComponent<BehaviorGraphAgent>(out _)) { Logger.LogError("Spawned stalker is missing BehaviorGraphAgent and cannot run stalker behavior."); }
 
-			if (spawnedStalker.GetComponent<StalkerAnimationEvents>() == null)
+			if (!spawnedStalker.TryGetComponent<StalkerAnimationEvents>(out _))
 			{
 				spawnedStalker.AddComponent<StalkerAnimationEvents>();
 				Logger.LogWarning("Spawned stalker was missing StalkerAnimationEvents. Added animation event receiver automatically.");
 			}
 		}
 
-		private static void EnsureExistingStalkerGraphSetup()
+		private static void ensureExistingStalkerGraphSetup()
 		{
-			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag("Anomaly");
+			GameObject[] activeAnomalies = GameObject.FindGameObjectsWithTag(anomalyTag);
 			foreach (GameObject anomalyObject in activeAnomalies)
 			{
 				if (anomalyObject == null) { continue; }
-				if (!anomalyObject.name.Contains("Stalker", StringComparison.OrdinalIgnoreCase)) { continue; }
+				if (!anomalyObject.name.Contains(stalkerNameToken, StringComparison.OrdinalIgnoreCase)) { continue; }
+				if (!anomalyObject.TryGetComponent<BehaviorGraphAgent>(out _)) { continue; }
 
-				bool isStalkerCandidate = anomalyObject.GetComponent("BehaviorGraphAgent") != null;
-				if (!isStalkerCandidate) { continue; }
-
-				ConfigureSpawnedStalker(anomalyObject);
+				configureSpawnedStalker(anomalyObject);
 			}
 		}
 
@@ -451,7 +459,7 @@ namespace Game.Manager
 
 		private float getDirectorPressure01()
 		{
-			float gameProgress = Mathf.Clamp01(elapsedGameTime / Mathf.Max(1f, gameLenght));
+			float gameProgress = Mathf.Clamp01(elapsedGameTime / Mathf.Max(1f, gameLength));
 			float anomalyPressure = Mathf.Clamp01((float)anomalyCounter / Mathf.Max(1, maxAnomalyWeight));
 			return Mathf.Clamp01((gameProgress * 0.5f) + (anomalyPressure * 0.35f) + reportPressure);
 		}

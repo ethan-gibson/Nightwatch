@@ -19,6 +19,10 @@ public partial class UpdateStalkerPerceptionAction : Action
 	private const string timeSinceSeenVariableName = "TimeSinceSeen";
 	private const string lostSightRecentlyVariableName = "LostSightRecently";
 	private const string lostSightMemoryVariableName = "LostSightMemory";
+	private const float defaultLostSightMemory = 4f;
+	private const float defaultSightRange = 10f;
+	private const float defaultVisionWidth = 45f;
+	private static readonly Vector3 defaultVisionOriginOffset = new(0f, 1.6f, 0f);
 
 	/// <summary>
 	/// Optional custom delta time. When zero or negative, <see cref="Time.deltaTime"/> is used.
@@ -101,6 +105,8 @@ public partial class UpdateStalkerPerceptionAction : Action
 	private PlayerMovement cachedPlayerMovement;
 	private Collider cachedPlayerCollider;
 	private readonly Vector3[] playerVisibilityPoints = new Vector3[3];
+	private float cachedVisionWidth = float.NaN;
+	private float cachedCosHalfFov;
 
 	/// <summary>
 	/// Caches references and applies one perception tick.
@@ -125,7 +131,7 @@ public partial class UpdateStalkerPerceptionAction : Action
 
 		timeSinceSeenVariable.Value = _timeSinceSeen;
 
-		float _lostSightMemory = LostSightMemoryFallback != null ? LostSightMemoryFallback.Value : 4f;
+		float _lostSightMemory = LostSightMemoryFallback != null ? LostSightMemoryFallback.Value : defaultLostSightMemory;
 		if (lostSightMemoryVariable != null) { _lostSightMemory = lostSightMemoryVariable.Value; }
 		_lostSightMemory = Mathf.Max(0.1f, _lostSightMemory);
 
@@ -198,6 +204,7 @@ public partial class UpdateStalkerPerceptionAction : Action
 	private bool tryResolvePlayer()
 	{
 		GameObject _playerObject = playerVariable != null ? playerVariable.Value : null;
+		if (!_playerObject) { _playerObject = cachedPlayerObject; }
 		if (!_playerObject) { _playerObject = GameObject.FindGameObjectWithTag(playerTag); }
 		if (!_playerObject) { return false; }
 
@@ -223,11 +230,10 @@ public partial class UpdateStalkerPerceptionAction : Action
 
 		fillPlayerVisibilityPoints();
 
-		float _range = Mathf.Max(0.1f, SightRange != null ? SightRange.Value : 10f);
+		float _range = Mathf.Max(0.1f, SightRange != null ? SightRange.Value : defaultSightRange);
 		float _rangeSqr = _range * _range;
-		float _halfFov = Mathf.Max(1f, VisionWidth != null ? VisionWidth.Value : 45f) * 0.5f;
-		float _cosHalfFov = Mathf.Cos(_halfFov * Mathf.Deg2Rad);
-		Vector3 _origin = cachedTransform.position + (VisionOriginOffset != null ? VisionOriginOffset.Value : new Vector3(0f, 1.6f, 0f));
+		float _cosHalfFov = resolveCosHalfFov();
+		Vector3 _origin = cachedTransform.position + (VisionOriginOffset != null ? VisionOriginOffset.Value : defaultVisionOriginOffset);
 		int _raycastMask = VisionRaycastMask != null ? VisionRaycastMask.Value : ~0;
 		QueryTriggerInteraction _queryTriggerInteraction = IgnoreTriggerColliders != null && IgnoreTriggerColliders.Value
 			? QueryTriggerInteraction.Ignore
@@ -249,6 +255,20 @@ public partial class UpdateStalkerPerceptionAction : Action
 		}
 
 		return false;
+	}
+
+	/// <summary>
+	/// Resolves and caches cosine half-FOV value used by visibility checks.
+	/// </summary>
+	/// <returns>Cosine of the clamped half field-of-view angle.</returns>
+	private float resolveCosHalfFov()
+	{
+		float _visionWidth = Mathf.Max(1f, VisionWidth != null ? VisionWidth.Value : defaultVisionWidth);
+		if (Mathf.Approximately(_visionWidth, cachedVisionWidth)) { return cachedCosHalfFov; }
+
+		cachedVisionWidth = _visionWidth;
+		cachedCosHalfFov = Mathf.Cos((_visionWidth * 0.5f) * Mathf.Deg2Rad);
+		return cachedCosHalfFov;
 	}
 
 	/// <summary>

@@ -17,6 +17,7 @@ public partial class TryKillPlayerAction : Action
 	private static readonly int isKilling = Animator.StringToHash("IsKilling");
 	private static readonly int killType = Animator.StringToHash("KillType");
 	private const string defaultLookPointName = "HighLookPoint";
+	private const string playerTag = "Player";
 
 	/// <summary>
 	/// Target player object provided by the behavior graph blackboard.
@@ -60,6 +61,7 @@ public partial class TryKillPlayerAction : Action
 	protected override Status OnStart()
 	{
 		if (!tryCacheAgentReferences() || !tryCachePlayerReferences()) { return Status.Failure; }
+		if (animator && animator.GetBool(isKilling)) { return Status.Failure; }
 		if (cachedPlayerMovement.CheckIfHiding()) { return Status.Failure; }
 
 		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : 1.6f);
@@ -110,7 +112,8 @@ public partial class TryKillPlayerAction : Action
 	private bool tryCachePlayerReferences()
 	{
 		GameObject _playerObject = Player?.Value;
-		if (!_playerObject) { _playerObject = GameObject.FindGameObjectWithTag("Player"); }
+		if (!_playerObject) { _playerObject = cachedPlayerObject; }
+		if (!_playerObject) { _playerObject = GameObject.FindGameObjectWithTag(playerTag); }
 		if (!_playerObject) { return false; }
 
 		if (!ReferenceEquals(cachedPlayerObject, _playerObject))
@@ -129,8 +132,6 @@ public partial class TryKillPlayerAction : Action
 	/// </summary>
 	private void triggerKill(float _lockDuration)
 	{
-		if (animator && animator.GetBool(isKilling)) { return; }
-
 		if (navMeshAgent)
 		{
 			navMeshAgent.velocity = Vector3.zero;

@@ -12,6 +12,8 @@ using Action = Unity.Behavior.Action;
 [NodeDescription(name: "GetPatrolPoint", story: "Sets a point to patrol to", category: "Action", id: "e6a422d2207565790bec466d30f39a10")]
 public partial class GetPatrolPointAction : Action
 {
+	private const string searchPointVariableName = "SearchPoint";
+
 	/// <summary>
 	/// Radius around the agent used to sample patrol destinations.
 	/// </summary>
@@ -88,7 +90,7 @@ public partial class GetPatrolPointAction : Action
 			searchPointVariable = null;
 		}
 
-		if (searchPointVariable == null && !graphAgent.GetVariable("SearchPoint", out searchPointVariable)) { return false; }
+		if (searchPointVariable == null && !graphAgent.GetVariable(searchPointVariableName, out searchPointVariable)) { return false; }
 
 		return true;
 	}

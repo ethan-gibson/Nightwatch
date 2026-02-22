@@ -65,7 +65,7 @@ public partial class ApplyStalkerStateEffectsAction : Action
 		State _state = stateVariable.Value;
 		float _minimumSpeed = MinimumAgentSpeed != null ? MinimumAgentSpeed.Value : 0.1f;
 		float _targetSpeed = Mathf.Max(_minimumSpeed, resolveSpeedForState(_state));
-		if (navMeshAgent) { navMeshAgent.speed = _targetSpeed; }
+		if (navMeshAgent && !Mathf.Approximately(navMeshAgent.speed, _targetSpeed)) { navMeshAgent.speed = _targetSpeed; }
 
 		if (!stateInitialized || _state != lastState)
 		{
