@@ -9,15 +9,22 @@ namespace Game.Entities
 {
 	public class HuntingAnomaly : AnomalyMain
 	{
-		[Tooltip("How long will it chase for")] [SerializeField]
+		[Tooltip("How long will it chase for")]
+		[SerializeField]
 		private float lifeTime;
 
-		[SerializeField] private float speed;
-		[SerializeField] private Vector3 spawnLocation;
-		[SerializeField] private Transform lookPoint;
-		[SerializeField] AudioClip walkingSound;
-		[SerializeField] private AudioClip alertedSound;
-		[SerializeField] private AudioSource breathingSound;
+		[SerializeField]
+		private float speed;
+		[SerializeField]
+		private Vector3 spawnLocation;
+		[SerializeField]
+		private Transform lookPoint;
+		[SerializeField]
+		AudioClip walkingSound;
+		[SerializeField]
+		private AudioClip alertedSound;
+		[SerializeField]
+		private AudioSource breathingSound;
 		private NavMeshAgent agent;
 		private Transform target;
 		private Collider targetCollider;
@@ -53,6 +60,7 @@ namespace Game.Entities
 			transform.position = spawnLocation;
 			breathingSound.enabled = true;
 		}
+
 		protected override void anomalyChange()
 		{
 			base.anomalyChange();
@@ -63,7 +71,6 @@ namespace Game.Entities
 			activated = true;
 			skinnedMeshRenderer.enabled = true;
 		}
-
 
 		protected override void resetAnomaly()
 		{

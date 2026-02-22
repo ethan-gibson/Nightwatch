@@ -9,11 +9,16 @@ namespace Game.Entities
 {
 	public class ShiftingAnomaly : AnomalyMain
 	{
-		[SerializeField] private float shiftTime = 3f;
-		[SerializeField] private Vector3 normalLocation;
-		[SerializeField] private Quaternion normalRotation;
-		[SerializeField] private Vector3 shiftedLocation;
-		[SerializeField] private Quaternion shiftedRotation;
+		[SerializeField]
+		private float shiftTime = 3f;
+		[SerializeField]
+		private Vector3 normalLocation;
+		[SerializeField]
+		private Quaternion normalRotation;
+		[SerializeField]
+		private Vector3 shiftedLocation;
+		[SerializeField]
+		private Quaternion shiftedRotation;
 
 		private void Awake()
 		{
@@ -71,7 +76,6 @@ namespace Game.Entities
 			cts?.Dispose();
 			cts = null;
 		}
-
 
 		#region Editor
 

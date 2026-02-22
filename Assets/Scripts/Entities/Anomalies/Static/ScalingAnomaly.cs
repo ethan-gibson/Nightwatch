@@ -8,9 +8,12 @@ namespace Game.Entities
 {
 	public class ScalingAnomaly : AnomalyMain
 	{
-		[SerializeField] private Vector3 normalScale;
-		[SerializeField] private Vector3 shiftedScale;
-		[SerializeField] private float growTime = 3f;
+		[SerializeField]
+		private Vector3 normalScale;
+		[SerializeField]
+		private Vector3 shiftedScale;
+		[SerializeField]
+		private float growTime = 3f;
 
 		private void Awake()
 		{
@@ -60,7 +63,6 @@ namespace Game.Entities
 			cts?.Dispose();
 			cts = null;
 		}
-
 
 		#region Editor
 

@@ -5,12 +5,15 @@ namespace Game.Entities
 {
 	public class WarpingAnomaly : AnomalyMain
 	{
-		[Tooltip("The material you want to change, start at 0")] [SerializeField]
+		[Tooltip("The material you want to change, start at 0")]
+		[SerializeField]
 		private int materialToChange;
 
-		[SerializeField] private Material materialToChangeTo;
+		[SerializeField]
+		private Material materialToChangeTo;
 		private Material[] originalMaterials;
-		[SerializeField] private MeshRenderer meshRenderer;
+		[SerializeField]
+		private MeshRenderer meshRenderer;
 
 		private void Awake()
 		{
