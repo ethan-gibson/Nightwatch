@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using SingularityGroup.HotReload.DTO;
+using SingularityGroup.HotReload.Editor.Cli;
 using SingularityGroup.HotReload.EditorDependencies;
+using SingularityGroup.HotReload.Editor.Localization;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
@@ -51,12 +54,12 @@ namespace SingularityGroup.HotReload.Editor {
             } catch {
                 // ignore
             }
-            fileName = fileName ?? "Tap to show stacktrace";
+            fileName = fileName ?? Translations.UI.TapToShowStacktrace;
             
             // Get the error
             string error = (errorString.Contains("error CS") 
-                               ? "Compile error, " 
-                               : "Unsupported change detected, ") + "tap here to see more.";
+                               ? Translations.UI.CompileErrorMessage + ", " 
+                               : Translations.UI.UnsupportedChangeMessage + ", ") + Translations.UI.TapHereToSeeMore;
             int endOfError = errorString.IndexOf(". in ", StringComparison.Ordinal);
             string specialChars = "\"'/\\";
             char[] characters = specialChars.ToCharArray();
@@ -79,22 +82,30 @@ namespace SingularityGroup.HotReload.Editor {
             } catch {
                 // ignore
             }
-            
+
             // Get relative path
             TextAsset file = null;
-            foreach (var path in supportedPaths) {
-                int lastprojectIndex = 0;
-                int attempt = 0;
-                while (attempt++ < 100 && !file) {
-                    lastprojectIndex = errorString.IndexOf(path, lastprojectIndex + 1, StringComparison.Ordinal);
-                    if (lastprojectIndex == -1) {
-                        break;
+            try {
+                foreach (var path in supportedPaths) {
+                    int lastprojectIndex = 0;
+                    int attempt = 0;
+                    while (attempt++ < 100 && !file) {
+                        lastprojectIndex = errorString.IndexOf(path, lastprojectIndex + 1, StringComparison.Ordinal);
+                        if (lastprojectIndex == -1) {
+                            break;
+                        }
+                        var fullCsIndex = errorString.IndexOf(".cs", lastprojectIndex, StringComparison.Ordinal);
+                        var l = fullCsIndex - lastprojectIndex + ".cs".Length;
+                        if (l <= 0) {
+                            continue;
+                        }
+                        var candidateAbsolutePath = errorString.Substring(lastprojectIndex, fullCsIndex - lastprojectIndex + ".cs".Length);
+                        var candidateRelativePath = EditorCodePatcher.GetRelativePath(filespec: candidateAbsolutePath, folder: path);
+                        file = AssetDatabase.LoadAssetAtPath<TextAsset>(candidateRelativePath);
                     }
-                    var fullCsIndex = errorString.IndexOf(".cs", lastprojectIndex, StringComparison.Ordinal);
-                    var candidateAbsolutePath = errorString.Substring(lastprojectIndex, fullCsIndex - lastprojectIndex + ".cs".Length);
-                    var candidateRelativePath = EditorCodePatcher.GetRelativePath(filespec: candidateAbsolutePath, folder: path);
-                    file = AssetDatabase.LoadAssetAtPath<TextAsset>(candidateRelativePath);
                 }
+            } catch {
+                // ignore
             }
             
             // Get the line number
@@ -250,7 +261,7 @@ namespace SingularityGroup.HotReload.Editor {
         private MessageType promoCodeErrorType;
         private bool promoCodeActivatedThisSession;
         
-        public HotReloadRunTab(HotReloadWindow window) : base(window, "Run", "forward", "Run and monitor the current Hot Reload session.") { }
+        public HotReloadRunTab(HotReloadWindow window) : base(window, Translations.UI.RunTabTitle, "forward", Translations.UI.RunTabTooltip) { }
 
         public override void OnGUI() {
             using(new EditorGUILayout.VerticalScope()) {
@@ -271,8 +282,11 @@ namespace SingularityGroup.HotReload.Editor {
                         RenderUpgradeLicenseNote(currentState, HotReloadWindowStyles.UpgradeLicenseButtonStyle);
                     }
 
-                    RenderIndicationPanel();
-
+                    var renderDebuggerInfo = Debugger.IsAttached && !CodePatcher.I.debuggerCompatibilityEnabled;
+                    RenderIndicationPanel(!renderDebuggerInfo);
+                    if (renderDebuggerInfo) {
+                        RenderDebuggerAttachedInfo(false);
+                    }
                     if (CanRenderBars(currentState)) {
                         RenderBars(currentState);
                         // clear red dot next time button shows
@@ -317,6 +331,9 @@ namespace SingularityGroup.HotReload.Editor {
         }
         
         internal static bool CanRenderBars(HotReloadRunTabState currentState) {
+            if (Debugger.IsAttached && !CodePatcher.I.debuggerCompatibilityEnabled) {
+                return false;
+            }
             return HotReloadWindowStyles.windowScreenHeight > Constants.EventsListHideHeight
                 && HotReloadWindowStyles.windowScreenWidth > Constants.EventsListHideWidth
                 && !currentState.starting
@@ -397,17 +414,14 @@ namespace SingularityGroup.HotReload.Editor {
                     GUI.Label(startRect, new GUIContent(title, icon), style);
                 }
 
-                bool clickableDescription = alertEntry.title == "Unsupported change" || alertEntry.title == "Compile error" || alertEntry.title == "Failed applying patch to method";
+                bool clickableDescription = (alertEntry.title == Translations.Utility.UnsupportedChange || alertEntry.title == Translations.Utility.CompileError || alertEntry.title == Translations.Timeline.EventTitleFailedApplyingPatch) && alertEntry.alertData.alertEntryType != AlertEntryType.InlinedMethod;
                 
                 if (HotReloadTimelineHelper.expandedEntries.Contains(alertEntry) || alertEntry.alertType == AlertType.CompileError) {
                     using (new EditorGUILayout.VerticalScope()) {
                         using (new EditorGUILayout.HorizontalScope()) {
                             using (new EditorGUILayout.VerticalScope(entryType == EntryType.Child ? HotReloadWindowStyles.ChildEntryBoxStyle : HotReloadWindowStyles.EntryBoxStyle)) {
-                                if (alertEntry.alertType == AlertType.Suggestion) {
+                                if (alertEntry.alertType == AlertType.Suggestion || !clickableDescription) {
                                     GUILayout.Label(alertEntry.description, HotReloadWindowStyles.LabelStyle);
-                                } else if (!clickableDescription) {
-                                    string text = alertEntry.description;
-                                    GUILayout.Label(text, HotReloadWindowStyles.LabelStyle);
                                 }
                                 if (alertEntry.actionData != null) {
                                     alertEntry.actionData.Invoke();
@@ -426,6 +440,9 @@ namespace SingularityGroup.HotReload.Editor {
                         var kind = HotReloadSuggestionsHelper.FindSuggestionKind(alertEntry);
                         if (kind != null) {
                             HotReloadSuggestionsHelper.SetSuggestionInactive((HotReloadSuggestionKind)kind);
+                            if (kind == HotReloadSuggestionKind.EditorsWithoutHRRunning) {
+                                HotReloadState.ShowedEditorsWithoutHR = true;
+                            }
                         }
                         _instantRepaint = true;
                     }
@@ -499,7 +516,7 @@ namespace SingularityGroup.HotReload.Editor {
                     using (new EditorGUILayout.VerticalScope()) {
                         HotReloadPrefs.RunTabEventsSuggestionsFoldout = EditorGUILayout.Foldout(HotReloadPrefs.RunTabEventsSuggestionsFoldout, "", true, HotReloadWindowStyles.CustomFoldoutStyle);
                         GUILayout.Space(-23);
-                        if (GUILayout.Button($"Suggestions ({currentState.suggestionCount.ToString()})", HotReloadWindowStyles.ClickableLabelBoldStyle, GUILayout.Height(27))) {
+                        if (GUILayout.Button(string.Format(Translations.Timeline.LabelSuggestionsFormat, currentState.suggestionCount.ToString()), HotReloadWindowStyles.ClickableLabelBoldStyle, GUILayout.Height(27))) {
                             HotReloadPrefs.RunTabEventsSuggestionsFoldout = !HotReloadPrefs.RunTabEventsSuggestionsFoldout;
                         }
                         if (HotReloadPrefs.RunTabEventsSuggestionsFoldout) {
@@ -516,7 +533,7 @@ namespace SingularityGroup.HotReload.Editor {
                 using (new EditorGUILayout.VerticalScope()) {
                     HotReloadPrefs.RunTabEventsTimelineFoldout = EditorGUILayout.Foldout(HotReloadPrefs.RunTabEventsTimelineFoldout, "", true, HotReloadWindowStyles.CustomFoldoutStyle);
                     GUILayout.Space(-23);
-                    if (GUILayout.Button("Timeline", HotReloadWindowStyles.ClickableLabelBoldStyle, timelineButtonOptions)) {
+                    if (GUILayout.Button(Translations.Timeline.LabelTimeline, HotReloadWindowStyles.ClickableLabelBoldStyle, timelineButtonOptions)) {
                         HotReloadPrefs.RunTabEventsTimelineFoldout = !HotReloadPrefs.RunTabEventsTimelineFoldout;
                     }
                     if (HotReloadPrefs.RunTabEventsTimelineFoldout) {
@@ -529,20 +546,20 @@ namespace SingularityGroup.HotReload.Editor {
                                     GUILayout.Space(2f);
                                     string text;
                                     if (currentState.redeemStage != RedeemStage.None) {
-                                        text = "Complete registration before using Hot Reload";
+                                        text = Translations.Timeline.MessageCompleteRegistration;
                                     } else if (!currentState.running) {
-                                        text = "Use the Start button to activate Hot Reload";
+                                        text = Translations.Timeline.MessageUseStartButton;
                                     } else if (enabledFilters.Count < 4 && HotReloadTimelineHelper.EventsTimeline.Count != 0) {
-                                        text = "Enable filters to see events";
+                                        text = Translations.Timeline.MessageEnableFilters;
                                     } else {
-                                        text = "Make code changes to see events";
+                                        text = Translations.Timeline.MessageMakeCodeChanges;
                                     }
                                     GUILayout.Label(text, HotReloadWindowStyles.EmptyListText);
                                 }
                                 GUILayout.FlexibleSpace();
                             } else {
                                 GUILayout.FlexibleSpace();
-                                if (HotReloadTimelineHelper.EventsTimeline.Count > 0 && GUILayout.Button("Clear")) {
+                                if (HotReloadTimelineHelper.EventsTimeline.Count > 0 && GUILayout.Button(Translations.Common.ButtonClear)) {
                                     HotReloadTimelineHelper.ClearEntries();
                                     if (HotReloadWindow.Current) {
                                         HotReloadWindow.Current.Repaint();
@@ -568,23 +585,27 @@ namespace SingularityGroup.HotReload.Editor {
             }
             EditorGUILayout.Space();
             
-            EditorGUILayout.LabelField($"Hot Reload Limited", HotReloadWindowStyles.H3CenteredTitleStyle);
+            EditorGUILayout.LabelField(Translations.License.TitleHotReloadLimited, HotReloadWindowStyles.H3CenteredTitleStyle);
             EditorGUILayout.Space();
             if (loginStatus.consumptionsUnavailableReason == ConsumptionsUnavailableReason.NetworkUnreachable) {
-                EditorGUILayout.HelpBox("Something went wrong. Please check your internet connection.", MessageType.Warning);
+                EditorGUILayout.HelpBox(Translations.Errors.ErrorNetworkIssue, MessageType.Warning);
             } else if (loginStatus.consumptionsUnavailableReason == ConsumptionsUnavailableReason.UnrecoverableError) {
-                EditorGUILayout.HelpBox("Something went wrong. Please contact support if the issue persists.", MessageType.Error);
+                EditorGUILayout.HelpBox(Translations.Errors.ErrorContactSupport, MessageType.Error);
             } else if (loginStatus.freeSessionFinished) {
                 var now = DateTime.UtcNow;
                 var sessionRefreshesAt = (now.AddDays(1).Date - now).Add(TimeSpan.FromMinutes(5));
-                var sessionRefreshString = $"Next Session: {(sessionRefreshesAt.Hours > 0 ? $"{sessionRefreshesAt.Hours}h " : "")}{sessionRefreshesAt.Minutes}min";
+                var sessionRefreshString = sessionRefreshesAt.Hours > 0 ? 
+                    string.Format(Translations.Miscellaneous.DailySessionNextSessionHours, sessionRefreshesAt.Hours, sessionRefreshesAt.Minutes) : 
+                    string.Format(Translations.Miscellaneous.DailySessionNextSessionMinutes, sessionRefreshesAt.Minutes);
                 HotReloadGUIHelper.HelpBox(sessionRefreshString, MessageType.Warning, fontSize: 11);
             } else if (loginStatus.freeSessionRunning && loginStatus.freeSessionEndTime != null) {
                 var sessionEndsAt = loginStatus.freeSessionEndTime.Value - DateTime.Now;
-                var sessionString = $"Daily Session: {(sessionEndsAt.Hours > 0 ? $"{sessionEndsAt.Hours}h " : "")}{sessionEndsAt.Minutes}min Left";
+                var sessionString = sessionEndsAt.Hours > 0 ? 
+                    string.Format(Translations.Miscellaneous.DailySessionTimeHoursLeft, sessionEndsAt.Hours, sessionEndsAt.Minutes) : 
+                    string.Format(Translations.Miscellaneous.DailySessionTimeMinutesLeft, sessionEndsAt.Minutes);
                 HotReloadGUIHelper.HelpBox(sessionString, MessageType.Info, fontSize: 11);
             } else if (loginStatus.freeSessionEndTime == null) {
-                HotReloadGUIHelper.HelpBox("Daily Session: Make code changes to start", MessageType.Info, fontSize: 11);
+                HotReloadGUIHelper.HelpBox(Translations.Miscellaneous.DailySessionStart, MessageType.Info, fontSize: 11);
             }
         }
 
@@ -640,7 +661,7 @@ namespace SingularityGroup.HotReload.Editor {
         }
 
         private void RenderRecompileButton() {
-            string recompileText = HotReloadWindowStyles.windowScreenWidth > Constants.RecompileButtonTextHideWidth ? " Recompile" : "";
+            string recompileText = HotReloadWindowStyles.windowScreenWidth > Constants.RecompileButtonTextHideWidth ? Translations.UI.RecompileButtonLabel : "";
             var recompileButton = new GUIContent(recompileText, GUIHelper.GetInvertibleIcon(InvertibleIcon.Recompile));
             if (!GUILayout.Button(recompileButton, HotReloadWindowStyles.RecompileButton)) {
                 return;
@@ -651,24 +672,35 @@ namespace SingularityGroup.HotReload.Editor {
         public static void RecompileWithChecks() {
             var firstDialoguePass = HotReloadPrefs.RecompileDialogueShown
                 || EditorUtility.DisplayDialog(
-                    title: "Hot Reload auto-applies changes",
-                    message: "Using the Recompile button is only necessary when Hot Reload fails to apply your changes. \n\nDo you wish to proceed?",
-                    ok: "Recompile",
-                    cancel: "Not now");
+                    title: Translations.Dialogs.DialogTitleRecompile,
+                    message: Translations.Dialogs.DialogMessageRecompile,
+                    ok: Translations.Common.ButtonRecompile.Trim(),
+                    cancel: Translations.Common.ButtonNotNow);
             HotReloadPrefs.RecompileDialogueShown = true;
             if (!firstDialoguePass) {
                 return;
             }
-            var secondDialoguePass = !Application.isPlaying
-                || EditorUtility.DisplayDialog(
-                    title: "Stop Play Mode and Recompile?",
-                    message: "Using the Recompile button will stop Play Mode.\n\nDo you wish to proceed?",
-                    ok: "Stop and Recompile",
-                    cancel: "Cancel");
-            if (!secondDialoguePass) {
+            if (!ConfirmExitPlaymode(Translations.Dialogs.DialogMessageStopPlayMode)) {
                 return;
             }
             Recompile();
+        }
+
+        #if UNITY_2020_1_OR_NEWER
+        public static void SwitchToDebugMode() {
+            CompilationPipeline.codeOptimization = CodeOptimization.Debug;
+            HotReloadRunTab.Recompile();
+            HotReloadSuggestionsHelper.SetSuggestionInactive(HotReloadSuggestionKind.SwitchToDebugModeForInlinedMethods);
+        }
+        #endif
+
+        public static bool ConfirmExitPlaymode(string message) {
+            return !Application.isPlaying
+                || EditorUtility.DisplayDialog(
+                    title: Translations.Dialogs.DialogTitleStopPlayMode,
+                    message: message,
+                    ok: Translations.Common.ButtonStopAndRecompile,
+                    cancel: Translations.Common.ButtonCancel);
         }
 
         public static bool recompiling;
@@ -692,15 +724,15 @@ namespace SingularityGroup.HotReload.Editor {
             }
             
             if (!currentState.running && (currentState.startupProgress?.Item1 ?? 0) == 0) {
-                string startText = HotReloadWindowStyles.windowScreenWidth > Constants.StartButtonTextHideWidth ? " Start" : "";
+                string startText = HotReloadWindowStyles.windowScreenWidth > Constants.StartButtonTextHideWidth ? Translations.UI.StartButtonLabel : "";
                 if (GUILayout.Button(new GUIContent(startText, GUIHelper.GetInvertibleIcon(InvertibleIcon.Start)), HotReloadWindowStyles.StartButton)) {
                     EditorCodePatcher.DownloadAndRun().Forget();
                 }
             } else if (currentState.running && !currentState.starting) {
-                if (HotReloadWindowStyles.windowScreenWidth > 150 && HotReloadTimelineHelper.CompileErrorsCount == 0) {
+                if (HotReloadWindowStyles.windowScreenWidth > 150) {
                     RenderRecompileButton();
                 }
-                string stopText = HotReloadWindowStyles.windowScreenWidth > Constants.StartButtonTextHideWidth ? " Stop" : "";
+                string stopText = HotReloadWindowStyles.windowScreenWidth > Constants.StartButtonTextHideWidth ? Translations.UI.StopButtonLabel : "";
                 if (GUILayout.Button(new GUIContent(stopText, GUIHelper.GetInvertibleIcon(InvertibleIcon.Stop)), HotReloadWindowStyles.StopButton)) {
                     if (!EditorCodePatcher.StoppedServerRecently()) {
                         EditorCodePatcher.StopCodePatcher().Forget();
@@ -709,7 +741,7 @@ namespace SingularityGroup.HotReload.Editor {
             }
         }
 
-        void RenderIndicationPanel() {
+        void RenderIndicationPanel(bool renderLicenseInfo = true) {
             using (new EditorGUILayout.HorizontalScope(HotReloadWindowStyles.SectionInnerBox)) {
                 RenderIndication();
                 if (HotReloadWindowStyles.windowScreenWidth > Constants.IndicationTextHideWidth) {
@@ -722,12 +754,51 @@ namespace SingularityGroup.HotReload.Editor {
             }
             if (currentState.requestingDownloadAndRun || currentState.starting) {
                 RenderProgressBar();
-            }
+                if (EditorCodePatcher.serverDownloader.Attempts > 0) {
+                    RenderManualDownloadSection();
+                }
+            } 
+
             if (HotReloadWindowStyles.windowScreenWidth > Constants.ConsumptionsHideWidth
                 && HotReloadWindowStyles.windowScreenHeight > Constants.ConsumptionsHideHeight
+                && renderLicenseInfo
             ) {
                 RenderLicenseInfo(currentState);
             }
+        }
+
+        bool copiedPath = false;
+        bool openedDownloadUrl = false;
+        void RenderManualDownloadSection() {
+            var downloadUrl = ServerDownloader.GetDownloadUrl(HotReloadCli.controller);
+            var downloadPath = EditorCodePatcher.serverDownloader.GetBinaryPath(HotReloadCli.controller);
+
+            EditorGUILayout.Space();
+            HotReloadGUIHelper.HelpBox(
+                Translations.Timeline.ManualDownloadWarning,
+                MessageType.Warning, 11);
+
+            HotReloadGUIHelper.HelpBox(
+                string.Format(Translations.Timeline.ManualDownloadInfo, downloadPath),
+                MessageType.Info, 11);
+
+            using (new EditorGUILayout.HorizontalScope()) {
+                if (GUILayout.Button(Translations.Timeline.ManualDownloadButtonCopyToClipboard + (copiedPath ? " ✓" : ""))) {
+                    GUIUtility.systemCopyBuffer = downloadPath;
+                    copiedPath = true;
+                }
+                if (GUILayout.Button(Translations.Timeline.ManualDownloadButtonOpenDownloadUrl + (openedDownloadUrl ? " ✓" : ""))) {
+                    Application.OpenURL(downloadUrl);
+                    openedDownloadUrl = true;
+                }
+            }
+            if (GUILayout.Button(Translations.Timeline.ManualDownloadButtonComplete)) {
+                EditorCodePatcher.downloadCancelToken?.Cancel();
+                copiedPath = false;
+                openedDownloadUrl = false;
+            }
+            OpenURLButton.Render(Translations.Timeline.ManualDownloadButtonContactSupport, Constants.ContactURL);
+            EditorGUILayout.Space();
         }
 
         internal static void RenderLicenseInfo(HotReloadRunTabState currentState) {
@@ -802,15 +873,15 @@ namespace SingularityGroup.HotReload.Editor {
                 messageType = !loginStatus.freeSessionFinished ? MessageType.Warning : MessageType.Error;
                 message = GetMessageFromError(currentState, loginStatus.lastLicenseError);
             } else if (loginStatus.isTrial && !PackageConst.IsAssetStoreBuild) {
-                message = $"Using Trial license, valid until {loginStatus.licenseExpiresAt.ToShortDateString()}";
+                message = string.Format(Translations.UI.TrialLicenseMessage, loginStatus.licenseExpiresAt.ToShortDateString());
                 messageType = MessageType.Info;
             } else if (loginStatus.isIndieLicense) {
                 if (verbose) {
-                    message = " Indie license active";
+                    message = Translations.UI.IndieLicenseMessage;
                     messageType = MessageType.Info;
                     customGUI = () => {
                         if (loginStatus.licenseExpiresAt.Date != DateTime.MaxValue.Date) {
-                            EditorGUILayout.LabelField($"License will renew on {loginStatus.licenseExpiresAt.ToShortDateString()}.");
+                            EditorGUILayout.LabelField(string.Format(Translations.UI.LicenseRenewalMessage, loginStatus.licenseExpiresAt.ToShortDateString()));
                             EditorGUILayout.Space();
                         }
                         using (new GUILayout.HorizontalScope()) {
@@ -826,7 +897,7 @@ namespace SingularityGroup.HotReload.Editor {
                 }
             } else if (loginStatus.isBusinessLicense) {
                 if (verbose) {
-                    message = " Business license active";
+                    message = Translations.UI.BusinessLicenseMessage;
                     messageType = MessageType.Info;
                     if (businessLicenseContent == null) {
                         businessLicenseContent = new GUIContent(message, EditorGUIUtility.FindTexture("TestPassed"));
@@ -854,7 +925,7 @@ namespace SingularityGroup.HotReload.Editor {
                             style.fixedHeight = GUILayoutUtility.GetLastRect().height;
                         }
                         if (allowHide) {
-                            if (GUILayout.Button("Hide", style)) {
+                            if (GUILayout.Button(Translations.Common.ButtonHide, style)) {
                                 HotReloadPrefs.ErrorHidden = true;
                             }
                         }
@@ -870,71 +941,90 @@ namespace SingularityGroup.HotReload.Editor {
             }
         }
 
-        const string assetStoreProInfo = "Unity Pro/Enterprise users from company with your number of employees require a Business license. Please upgrade your license on our website.";
         internal static void RenderBusinessLicenseInfo(GUIStyle style) {
             GUILayout.Space(8);
             using (new EditorGUILayout.HorizontalScope()) {
-                EditorGUILayout.HelpBox(assetStoreProInfo, MessageType.Info);
+                EditorGUILayout.HelpBox(Translations.License.LicenseErrorAssetStorePro, MessageType.Info);
                 if (Event.current.type == EventType.Repaint) {
                     style.fixedHeight = GUILayoutUtility.GetLastRect().height;
                 }
-                if (GUILayout.Button("Upgrade", style)) {
+                if (GUILayout.Button(Translations.Common.ButtonUpgrade, style)) {
                     Application.OpenURL(Constants.ProductPurchaseBusinessURL);
                 }
             }
         }
         
-        internal static void RenderIndieLicenseInfo(GUIStyle style) {
-            string message;
-            if (EditorCodePatcher.licenseType == UnityLicenseType.UnityPersonalPlus) {
-                message = "Unity Plus users require an Indie license. Please upgrade your license on our website.";
-            } else if (EditorCodePatcher.licenseType == UnityLicenseType.UnityPro) {
-                message = "Unity Pro/Enterprise users from company with your number of employees require an Indie license. Please upgrade your license on our website.";
-            } else {
-                return;
+        internal static void RenderDebuggerAttachedInfo(bool isPopup) {
+            GUILayout.Space(8);
+            var autoRefreshDisabled = AutoRefreshSettingChecker.IsUserAutoRefreshDisabled();
+            var msg = autoRefreshDisabled ? Translations.Suggestions.DebuggerAttachedMessagePaused : Translations.Suggestions.DebuggerAttachedMessageAutoRecompile;
+            using (new EditorGUILayout.VerticalScope()) {
+                var _fontSize = EditorStyles.helpBox.fontSize;
+                try {
+                    EditorStyles.helpBox.fontSize = 12;
+                    // empty label field to measure width
+                    EditorGUILayout.LabelField(GUIContent.none, new GUILayoutOption[]{GUILayout.Height(0)});
+                    var lastRectWidth = GUILayoutUtility.GetLastRect().width;
+                    EditorStyles.helpBox.fixedHeight = EditorStyles.helpBox.CalcHeight(new GUIContent(msg), lastRectWidth) + 15;
+                    EditorStyles.helpBox.fixedWidth = lastRectWidth;
+                    EditorGUILayout.HelpBox(msg, MessageType.Info);
+                    // to account for added height
+                    GUILayout.Space(isPopup ? 45 : 30);
+                    using (new EditorGUILayout.HorizontalScope()) {
+                        if (GUILayout.Button("Docs")) {
+                            Application.OpenURL(Constants.DebuggerURL);
+                        }
+                        if (GUILayout.Button("Open Settings") && HotReloadWindow.Current) {
+                            HotReloadWindow.Current.SelectTab(typeof(HotReloadSettingsTab));
+                        }
+                    }
+                } finally {
+                    EditorStyles.helpBox.fixedHeight = 0;
+                    EditorStyles.helpBox.fixedWidth = 0;
+                    EditorStyles.helpBox.fontSize = _fontSize;
+                }
             }
+        }
+        
+        internal static void RenderIndieLicenseInfo(GUIStyle style) {
             GUILayout.Space(8);
             using (new EditorGUILayout.HorizontalScope()) {
-                EditorGUILayout.HelpBox(message, MessageType.Info);
+                EditorGUILayout.HelpBox(Translations.License.LicenseErrorUnityPlusIndie, MessageType.Info);
                 if (Event.current.type == EventType.Repaint) {
                     style.fixedHeight = GUILayoutUtility.GetLastRect().height;
                 }
-                if (GUILayout.Button("Upgrade", style)) {
+                if (GUILayout.Button(Translations.Common.ButtonUpgrade, style)) {
                     Application.OpenURL(Constants.ProductPurchaseURL);
                 }
             }
         }
 
-        const string GetLicense = "Get License";
-        const string ContactSupport = "Contact Support";
-        const string UpgradeLicense = "Upgrade License";
-        const string ManageLicense = "Manage License";
         internal static Dictionary<string, LicenseErrorData> _licenseErrorData;
         internal static Dictionary<string, LicenseErrorData> LicenseErrorData => _licenseErrorData ?? (_licenseErrorData = new Dictionary<string, LicenseErrorData> {
-            { "DeviceNotLicensedException", new LicenseErrorData(description: "Another device is using your license. Please reach out to customer support for assistance.", showSupportButton: true, supportButtonText: ContactSupport) },
-            { "DeviceBlacklistedException", new LicenseErrorData(description: "You device has been blacklisted.") },
-            { "DateHeaderInvalidException", new LicenseErrorData(description: $"Your license is not working because your computer's clock is incorrect. Please set the clock to the correct time to restore your license.") },
-            { "DateTimeCheatingException", new LicenseErrorData(description: $"Your license is not working because your computer's clock is incorrect. Please set the clock to the correct time to restore your license.") },
-            { "LicenseActivationException", new LicenseErrorData(description: "An error has occured while activating your license. Please contact customer support for assistance.", showSupportButton: true, supportButtonText: ContactSupport) },
-            { "LicenseDeletedException", new LicenseErrorData(description: $"Your license has been deleted. Please contact customer support for assistance.", showBuyButton: true, buyButtonText: GetLicense, showSupportButton: true, supportButtonText: ContactSupport) },
-            { "LicenseDisabledException", new LicenseErrorData(description: $"Your license has been disabled. Please contact customer support for assistance.", showBuyButton: true, buyButtonText: GetLicense, showSupportButton: true, supportButtonText: ContactSupport) },
-            { "LicenseExpiredException", new LicenseErrorData(description: $"Your license has expired. Please renew your license subscription using the 'Upgrade License' button below and login with your email/password to activate your license.", showBuyButton: true, buyButtonText: UpgradeLicense, showManageLicenseButton: true, manageLicenseButtonText: ManageLicense) },
-            { "LicenseInactiveException", new LicenseErrorData(description: $"Your license is currenty inactive. Please login with your email/password to activate your license.") },
-            { "LocalLicenseException", new LicenseErrorData(description: $"Your license file was damaged or corrupted. Please login with your email/password to refresh your license file.") },
+            { "DeviceNotLicensedException", new LicenseErrorData(description: Translations.License.LicenseErrorDeviceInUse, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport) },
+            { "DeviceBlacklistedException", new LicenseErrorData(description: Translations.License.LicenseErrorDeviceBlacklisted) },
+            { "DateHeaderInvalidException", new LicenseErrorData(description: Translations.License.LicenseErrorIncorrectClock) },
+            { "DateTimeCheatingException", new LicenseErrorData(description: Translations.License.LicenseErrorIncorrectClock) },
+            { "LicenseActivationException", new LicenseErrorData(description: Translations.License.LicenseErrorActivation, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport) },
+            { "LicenseDeletedException", new LicenseErrorData(description: Translations.License.LicenseErrorDeleted, showBuyButton: true, buyButtonText: Translations.License.LicenseButtonGetLicense, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport) },
+            { "LicenseDisabledException", new LicenseErrorData(description: Translations.License.LicenseErrorDisabled, showBuyButton: true, buyButtonText: Translations.License.LicenseButtonGetLicense, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport) },
+            { "LicenseExpiredException", new LicenseErrorData(description: Translations.License.LicenseErrorExpired, showBuyButton: true, buyButtonText: Translations.License.LicenseButtonUpgradeLicense, showManageLicenseButton: true, manageLicenseButtonText: Translations.License.LicenseButtonManageLicense) },
+            { "LicenseInactiveException", new LicenseErrorData(description: Translations.License.LicenseErrorInactive) },
+            { "LocalLicenseException", new LicenseErrorData(description: Translations.License.LicenseErrorCorrupted) },
             // Note: obsolete
-            { "MissingParametersException", new LicenseErrorData(description: "An account already exists for this device. Please login with your existing email/password.", showBuyButton: true, buyButtonText: GetLicense) },
-            { "NetworkException", new LicenseErrorData(description: "There is an issue connecting to our servers. Please check your internet connection or contact customer support if the issue persists.", showSupportButton: true, supportButtonText: ContactSupport) },
-            { "TrialLicenseExpiredException", new LicenseErrorData(description: $"Your trial has expired. Activate a license with unlimited usage or continue using the Free version. View available plans on our website.", showBuyButton: true, buyButtonText: UpgradeLicense) },
-            { "InvalidCredentialException", new LicenseErrorData(description: "Incorrect email/password. You can find your initial password in the sign-up email.") },
+            { "MissingParametersException", new LicenseErrorData(description: "An account already exists for this device. Please login with your existing email/password.", showBuyButton: true, buyButtonText: Translations.License.LicenseButtonGetLicense) },
+            { "NetworkException", new LicenseErrorData(description: Translations.License.LicenseErrorNetwork, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport) },
+            { "TrialLicenseExpiredException", new LicenseErrorData(description: Translations.License.LicenseErrorTrialExpired, showBuyButton: true, buyButtonText: Translations.License.LicenseButtonUpgradeLicense) },
+            { "InvalidCredentialException", new LicenseErrorData(description: Translations.License.LicenseErrorInvalidCredentials) },
             // Note: activating free trial with email is not supported anymore. This error shouldn't happen which is why we should rather user the fallback
             // { "LicenseNotFoundException", new LicenseErrorData(description: "The account you're trying to access doesn't seem to exist yet. Please enter your email address to create a new account and receive a trial license.", showLoginButton: true, loginButtonText: CreateAccount) },
-            { "LicenseIncompatibleException", new LicenseErrorData(description: "Please upgrade your license to continue using hotreload with Unity Pro.", showManageLicenseButton: true, manageLicenseButtonText: ManageLicense) },
+            { "LicenseIncompatibleException", new LicenseErrorData(description: Translations.License.LicenseErrorIncompatible, showManageLicenseButton: true, manageLicenseButtonText: Translations.License.LicenseButtonManageLicense) },
         });
-        internal static LicenseErrorData defaultLicenseErrorData = new LicenseErrorData(description: "We apologize, an error happened while verifying your license. Please reach out to customer support for assistance.", showSupportButton: true, supportButtonText: ContactSupport);
+        internal static LicenseErrorData defaultLicenseErrorData = new LicenseErrorData(description: Translations.License.LicenseErrorDefault, showSupportButton: true, supportButtonText: Translations.License.LicenseButtonContactSupport);
 
         internal static string GetMessageFromError(HotReloadRunTabState currentState, string error) {
             if (PackageConst.IsAssetStoreBuild && error == "TrialLicenseExpiredException") {
-                return assetStoreProInfo;
+                return Translations.License.LicenseErrorAssetStorePro;
             }
             return GetLicenseErrorDataOrDefault(currentState, error).description;
         }
@@ -944,7 +1034,7 @@ namespace SingularityGroup.HotReload.Editor {
                 return default(LicenseErrorData);
             }
             if (currentState.loginStatus == null || string.IsNullOrEmpty(error) && (!currentState.loginStatus.isLicensed || currentState.loginStatus.isTrial)) {
-                return new LicenseErrorData(null, showBuyButton: true, buyButtonText: GetLicense);
+                return new LicenseErrorData(null, showBuyButton: true, buyButtonText: Translations.License.LicenseButtonGetLicense);
             }
             if (string.IsNullOrEmpty(error)) {
                 return default(LicenseErrorData);
@@ -985,7 +1075,7 @@ namespace SingularityGroup.HotReload.Editor {
         }
         
         internal static void RenderLicenseInfo(HotReloadRunTabState currentState, LoginStatusResponse loginStatus, bool verbose = false, bool allowHide = true, string overrideActionButton = null, bool showConsumptions = false) {
-            HotReloadPrefs.ShowLogin = EditorGUILayout.Foldout(HotReloadPrefs.ShowLogin, "Hot Reload License", true, HotReloadWindowStyles.FoldoutStyle);
+            HotReloadPrefs.ShowLogin = EditorGUILayout.Foldout(HotReloadPrefs.ShowLogin, Translations.License.TitleHotReloadLicense, true, HotReloadWindowStyles.FoldoutStyle);
             if (HotReloadPrefs.ShowLogin) {
                 EditorGUILayout.Space();
                 if ((loginStatus?.isLicensed != true && showConsumptions) && !(loginStatus == null || loginStatus.isFree)) {
@@ -1001,22 +1091,22 @@ namespace SingularityGroup.HotReload.Editor {
         }
 
         internal void RenderPromoCodes() {
-            HotReloadPrefs.ShowPromoCodes = EditorGUILayout.Foldout(HotReloadPrefs.ShowPromoCodes, "Promo Codes", true, HotReloadWindowStyles.FoldoutStyle);
+            HotReloadPrefs.ShowPromoCodes = EditorGUILayout.Foldout(HotReloadPrefs.ShowPromoCodes, Translations.License.PromoCodesTitle, true, HotReloadWindowStyles.FoldoutStyle);
             if (!HotReloadPrefs.ShowPromoCodes) {
                 return;
             }
             if (promoCodeActivatedThisSession) {
-                EditorGUILayout.HelpBox($"Your promo code has been successfully activated. Free trial has been extended by 3 months.", MessageType.Info);
+                EditorGUILayout.HelpBox(Translations.License.MessagePromoCodeActivated, MessageType.Info);
             } else {
                 if (promoCodeError != null && promoCodeErrorType != MessageType.None) {
                     EditorGUILayout.HelpBox(promoCodeError, promoCodeErrorType);
                 }
-                EditorGUILayout.LabelField("Promo code");
+                EditorGUILayout.LabelField(Translations.Common.LabelPromoCode);
                 _pendingPromoCode = EditorGUILayout.TextField(_pendingPromoCode);
                 EditorGUILayout.Space();
 
                 using (new EditorGUI.DisabledScope(_requestingActivatePromoCode)) {
-                    if (GUILayout.Button("Activate promo code", HotReloadRunTab.bigButtonHeight)) {
+                    if (GUILayout.Button(Translations.Common.ButtonActivatePromoCode, HotReloadRunTab.bigButtonHeight)) {
                         RequestActivatePromoCode().Forget();
                     }
                 }
@@ -1067,7 +1157,7 @@ namespace SingularityGroup.HotReload.Editor {
         }
 
         string ToPrettyErrorMessage(PromoCodeErrorType errorType) {
-            var defaultMsg = "We apologize, an error happened while activating your promo code. Please reach out to customer support for assistance.";
+            var defaultMsg = Translations.Errors.ErrorPromoCodeActivation;
             switch (errorType) {
                 case PromoCodeErrorType.MISSING_INPUT:
                 case PromoCodeErrorType.INVALID_HTTP_METHOD:
@@ -1078,12 +1168,12 @@ namespace SingularityGroup.HotReload.Editor {
                 case PromoCodeErrorType.UPDATING_LICENSE_FAILED:
                 case PromoCodeErrorType.LICENSE_NOT_TRIAL:
                     return defaultMsg;
-                case PromoCodeErrorType.PROMO_CODE_NOT_FOUND:     return "Your promo code is invalid. Please ensure that you have entered the correct promo code.";
-                case PromoCodeErrorType.PROMO_CODE_CLAIMED:       return "Your promo code has already been used.";
-                case PromoCodeErrorType.PROMO_CODE_EXPIRED:       return "Your promo code has expired.";
-                case PromoCodeErrorType.LICENSE_ALREADY_EXTENDED: return "Your license has already been activated with a promo code. Only one promo code activation per license is allowed.";
-                case PromoCodeErrorType.CONDITIONAL_CHECK_FAILED: return "We encountered an error while activating your promo code. Please try again. If the issue persists, please contact our customer support team for assistance.";
-                case PromoCodeErrorType.NONE:                     return "There is an issue connecting to our servers. Please check your internet connection or contact customer support if the issue persists.";
+                case PromoCodeErrorType.PROMO_CODE_NOT_FOUND:     return Translations.Errors.ErrorPromoCodeInvalid;
+                case PromoCodeErrorType.PROMO_CODE_CLAIMED:       return Translations.Errors.ErrorPromoCodeUsed;
+                case PromoCodeErrorType.PROMO_CODE_EXPIRED:       return Translations.Errors.ErrorPromoCodeExpired;
+                case PromoCodeErrorType.LICENSE_ALREADY_EXTENDED: return Translations.Errors.ErrorLicenseExtended;
+                case PromoCodeErrorType.CONDITIONAL_CHECK_FAILED: return Translations.Errors.ErrorPromoCodeActivation;
+                case PromoCodeErrorType.NONE:                     return Translations.Errors.ErrorPromoCodeNetwork;
                 default:                                          return defaultMsg;
             }
         }
@@ -1113,12 +1203,12 @@ namespace SingularityGroup.HotReload.Editor {
         }
 
         internal static void RenderLicenseInnerPanel(HotReloadRunTabState currentState, string overrideActionButton = null, bool renderLogout = true) {
-            EditorGUILayout.LabelField("Email");
+            EditorGUILayout.LabelField(Translations.Common.LabelEmail);
             GUI.SetNextControlName("email");
             _pendingEmail = EditorGUILayout.TextField(string.IsNullOrEmpty(_pendingEmail) ? HotReloadPrefs.LicenseEmail : _pendingEmail);
             _pendingEmail = _pendingEmail.Trim();
 
-            EditorGUILayout.LabelField("Password");
+            EditorGUILayout.LabelField(Translations.Common.LabelPassword);
             GUI.SetNextControlName("password");
             _pendingPassword = EditorGUILayout.PasswordField(string.IsNullOrEmpty(_pendingPassword) ? HotReloadPrefs.LicensePassword : _pendingPassword);
             
@@ -1128,7 +1218,7 @@ namespace SingularityGroup.HotReload.Editor {
             using(new EditorGUI.DisabledScope(currentState.requestingLoginInfo)) {
                 var btnLabel = overrideActionButton;
                 if (String.IsNullOrEmpty(overrideActionButton)) {
-                    btnLabel = "Login";
+                    btnLabel = Translations.Common.ButtonLogin;
                 }
                 using (new EditorGUILayout.HorizontalScope()) {
                     var focusedControl = GUI.GetNameOfFocusedControl();
@@ -1143,7 +1233,7 @@ namespace SingularityGroup.HotReload.Editor {
                         if (!string.IsNullOrEmpty(error)) {
                             _activateInfoMessage = new Tuple<string, MessageType>(error, MessageType.Warning);
                         } else if (string.IsNullOrEmpty(_pendingPassword)) {
-                            _activateInfoMessage = new Tuple<string, MessageType>("Please enter your password.", MessageType.Warning);
+                            _activateInfoMessage = new Tuple<string, MessageType>(Translations.Errors.ErrorEnterPassword, MessageType.Warning);
                         } else {
                             HotReloadWindow.Current.SelectTab(typeof(HotReloadRunTab));
 
@@ -1170,11 +1260,11 @@ namespace SingularityGroup.HotReload.Editor {
 
         public static string ValidateEmail(string email) {
             if (string.IsNullOrEmpty(email)) {
-                return "Please enter your email address.";
+                return Translations.Errors.ErrorEnterEmail;
             } else if (!EditorWindowHelper.IsValidEmailAddress(email)) {
-                return "Please enter a valid email address.";
+                return Translations.Errors.ErrorValidEmail;
             } else if (email.Contains("+")) {
-                return "Mail extensions (in a form of 'username+suffix@example.com') are not supported yet. Please provide your original email address (such as 'username@example.com' without '+suffix' part) as we're working on resolving this issue.";
+                return Translations.Errors.ErrorMailExtensions;
             }
             return null;
         }
@@ -1183,7 +1273,7 @@ namespace SingularityGroup.HotReload.Editor {
             if (currentState.loginStatus?.isLicensed != true) {
                 return;
             }
-            if (GUILayout.Button("Logout", bigButtonHeight)) {
+            if (GUILayout.Button(Translations.Common.ButtonLogout, bigButtonHeight)) {
                 HotReloadWindow.Current.SelectTab(typeof(HotReloadRunTab));
                 if (!EditorCodePatcher.RequestingDownloadAndRun && !EditorCodePatcher.Running) {
                     LogoutOnDownloadAndRun().Forget();
@@ -1224,8 +1314,8 @@ namespace SingularityGroup.HotReload.Editor {
 
         private static void RenderSwitchAuthMode() {
             var color = EditorGUIUtility.isProSkin ? new Color32(0x3F, 0x9F, 0xFF, 0xFF) : new Color32(0x0F, 0x52, 0xD7, 0xFF); 
-            if (HotReloadGUIHelper.LinkLabel("Forgot password?", 12, FontStyle.Normal, TextAnchor.MiddleLeft, color)) {
-                if (EditorUtility.DisplayDialog("Recover password", "Use company code 'naughtycult' and the email you signed up with in order to recover your account.", "Open in browser", "Cancel")) {
+            if (HotReloadGUIHelper.LinkLabel(Translations.Miscellaneous.LinkForgotPassword, 12, FontStyle.Normal, TextAnchor.MiddleLeft, color)) {
+                if (EditorUtility.DisplayDialog(Translations.Dialogs.DialogTitleRecoverPassword, Translations.Dialogs.DialogMessageRecoverPassword, Translations.Common.ButtonOpenInBrowser, Translations.Common.ButtonCancel)) {
                     Application.OpenURL(Constants.ForgotPasswordURL);
                 }
             }
