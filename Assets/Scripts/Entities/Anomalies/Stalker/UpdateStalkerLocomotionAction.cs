@@ -45,6 +45,7 @@ public partial class UpdateStalkerLocomotionAction : Action
 
 	private NavMeshAgent navMeshAgent;
 	private Animator animator;
+	private StalkerAnimationEvents animationEvents;
 	private AudioSource walkingAudioSource;
 	private string cachedAnimatorParameterName;
 	private int cachedAnimatorParameterHash;
@@ -65,7 +66,15 @@ public partial class UpdateStalkerLocomotionAction : Action
 	{
 		if (!tryCacheReferences()) { return Status.Failure; }
 
-		float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
+		bool _movementLocked = animationEvents != null && animationEvents.IsMovementLocked;
+		if (_movementLocked && navMeshAgent.enabled && navMeshAgent.isOnNavMesh)
+		{
+			navMeshAgent.isStopped = true;
+			navMeshAgent.velocity = Vector3.zero;
+		}
+
+		float _velocityMagnitude = resolveMovementSpeedMagnitude(_movementLocked);
+		float _velocitySqrMagnitude = _velocityMagnitude * _velocityMagnitude;
 
 		if (UpdateAnimatorSpeed != null && UpdateAnimatorSpeed.Value && animator)
 		{
@@ -82,7 +91,6 @@ public partial class UpdateStalkerLocomotionAction : Action
 			}
 			refreshAnimatorParameterPresence(_parameterName);
 
-			float _velocityMagnitude = Mathf.Sqrt(_velocitySqrMagnitude);
 			if (!hasAnimatorSpeedValue || !Mathf.Approximately(_velocityMagnitude, lastAnimatorSpeedValue))
 			{
 				lastAnimatorSpeedValue = _velocityMagnitude;
@@ -132,6 +140,7 @@ public partial class UpdateStalkerLocomotionAction : Action
 
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
 		animator ??= GameObject.GetComponent<Animator>();
+		animationEvents ??= GameObject.GetComponent<StalkerAnimationEvents>();
 
 		if (!walkingAudioSource)
 		{
@@ -140,6 +149,26 @@ public partial class UpdateStalkerLocomotionAction : Action
 		}
 
 		return navMeshAgent;
+	}
+
+	/// <summary>
+	/// Resolves movement speed magnitude for animation/audio from NavMesh velocity signals.
+	/// Uses desired velocity as fallback when current velocity lags behind path intent.
+	/// </summary>
+	/// <param name="_movementLocked">Whether movement output should be forced to zero.</param>
+	/// <returns>Current movement speed magnitude.</returns>
+	private float resolveMovementSpeedMagnitude(bool _movementLocked)
+	{
+		if (_movementLocked || navMeshAgent.isStopped) { return 0f; }
+
+		float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
+		if (_velocitySqrMagnitude <= 0.0001f && navMeshAgent.hasPath && !navMeshAgent.pathPending)
+		{
+			_velocitySqrMagnitude = navMeshAgent.desiredVelocity.sqrMagnitude;
+		}
+
+		if (_velocitySqrMagnitude <= 0f) { return 0f; }
+		return Mathf.Sqrt(_velocitySqrMagnitude);
 	}
 
 	/// <summary>

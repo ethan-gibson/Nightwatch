@@ -15,14 +15,24 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 	private NavMeshAgent cachedNavMeshAgent;
 	private Animator cachedAnimator;
 	private bool leaveAnimationCompleted;
+	private bool blockMovementUntilEntryAnimationCompletes;
+	private bool externalMovementLock;
 
 	private void OnEnable()
 	{
 		cacheReferences();
 		leaveAnimationCompleted = false;
+		blockMovementUntilEntryAnimationCompletes = true;
+		externalMovementLock = false;
 
 		// Keep agent stationary while spawn window-enter animation plays.
-		if (cachedNavMeshAgent && cachedNavMeshAgent.enabled && cachedNavMeshAgent.isOnNavMesh) { cachedNavMeshAgent.isStopped = true; }
+		applyMovementLockIfNeeded();
+	}
+
+	private void LateUpdate()
+	{
+		// Re-apply the lock after graph actions so navigation writes cannot bypass spawn/leave gating.
+		applyMovementLockIfNeeded();
 	}
 
 	/// <summary>
@@ -52,11 +62,8 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 			return;
 		}
 
-		if (cachedNavMeshAgent && cachedNavMeshAgent.enabled && cachedNavMeshAgent.isOnNavMesh)
-		{
-			cachedNavMeshAgent.isStopped = false;
-			if (cachedNavMeshAgent.speed <= 0f) { cachedNavMeshAgent.speed = 1f; }
-		}
+		blockMovementUntilEntryAnimationCompletes = false;
+		applyMovementLockIfNeeded();
 	}
 
 	/// <summary>
@@ -70,9 +77,41 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 		return true;
 	}
 
+	/// <summary>
+	/// True when movement should remain blocked by spawn/leave animation flow.
+	/// </summary>
+	public bool IsMovementLocked => blockMovementUntilEntryAnimationCompletes || externalMovementLock;
+
+	/// <summary>
+	/// Applies or clears an external movement lock used by graph actions.
+	/// </summary>
+	/// <param name="_locked">Whether to force movement lock.</param>
+	public void SetExternalMovementLock(bool _locked)
+	{
+		cacheReferences();
+		externalMovementLock = _locked;
+		applyMovementLockIfNeeded();
+	}
+
 	private void cacheReferences()
 	{
 		cachedNavMeshAgent ??= GetComponent<NavMeshAgent>();
 		cachedAnimator ??= GetComponent<Animator>();
+	}
+
+	private void applyMovementLockIfNeeded()
+	{
+		cacheReferences();
+		if (!cachedNavMeshAgent || !cachedNavMeshAgent.enabled || !cachedNavMeshAgent.isOnNavMesh) { return; }
+
+		if (IsMovementLocked)
+		{
+			cachedNavMeshAgent.isStopped = true;
+			cachedNavMeshAgent.velocity = Vector3.zero;
+			return;
+		}
+
+		cachedNavMeshAgent.isStopped = false;
+		if (cachedNavMeshAgent.speed <= 0f) { cachedNavMeshAgent.speed = 1f; }
 	}
 }

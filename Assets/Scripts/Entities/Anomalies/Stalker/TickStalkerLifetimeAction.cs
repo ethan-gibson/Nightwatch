@@ -13,6 +13,8 @@ using Action = Unity.Behavior.Action;
 public partial class TickStalkerLifetimeAction : Action
 {
 	private static readonly int leavingHash = Animator.StringToHash("IsLeaving");
+	private static readonly int velocityAnimatorSpeedParameterHash = Animator.StringToHash("Velocity");
+	private static readonly int speedMagnitudeAnimatorSpeedParameterHash = Animator.StringToHash("SpeedMagnitude");
 	private const string defaultExitTag = "StalkerEnterExit";
 
 	/// <summary>
@@ -163,6 +165,7 @@ public partial class TickStalkerLifetimeAction : Action
 		{
 			leaveTime += Mathf.Max(0f, _deltaTime);
 			updateLeavingState();
+			updateLeaveLocomotionOutputs();
 			syncLeaveFlag();
 			return Status.Running;
 		}
@@ -183,6 +186,7 @@ public partial class TickStalkerLifetimeAction : Action
 
 		beginLeaving();
 		updateLeavingState();
+		updateLeaveLocomotionOutputs();
 		syncLeaveFlag();
 		return Status.Running;
 	}
@@ -199,6 +203,7 @@ public partial class TickStalkerLifetimeAction : Action
 		leaveAnimationStarted = false;
 		hasExitTargetPosition = false;
 		animationEvents?.ConsumeLeaveAnimationCompleted();
+		animationEvents?.SetExternalMovementLock(false);
 
 		if (animator) { animator.SetBool(leavingHash, false); }
 		moveToClosestExit();
@@ -253,6 +258,8 @@ public partial class TickStalkerLifetimeAction : Action
 		hasExitTargetPosition = true;
 		navMeshAgent.isStopped = false;
 		if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
+		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
+		if (navMeshAgent.stoppingDistance > _leaveArrivalDistance) { navMeshAgent.stoppingDistance = _leaveArrivalDistance; }
 		if (NavMesh.SamplePosition(_closestExit.position, out NavMeshHit _exitHit, 1.25f, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_exitHit.position); }
 		else { navMeshAgent.SetDestination(_closestExit.position); }
 	}
@@ -296,6 +303,7 @@ public partial class TickStalkerLifetimeAction : Action
 
 		if (leaveAnimationStarted)
 		{
+			updateLeaveLocomotionOutputs(_forceIdle: true);
 			if (animationEvents != null)
 			{
 				if (!animationEvents.ConsumeLeaveAnimationCompleted()) { return; }
@@ -310,9 +318,11 @@ public partial class TickStalkerLifetimeAction : Action
 		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
 		if (navMeshAgent.remainingDistance > _leaveArrivalDistance) { return; }
 
+		animationEvents?.SetExternalMovementLock(true);
 		navMeshAgent.velocity = Vector3.zero;
 		navMeshAgent.isStopped = true;
 		leaveAnimationStarted = true;
+		updateLeaveLocomotionOutputs(_forceIdle: true);
 
 		if (animator)
 		{
@@ -321,6 +331,33 @@ public partial class TickStalkerLifetimeAction : Action
 		}
 
 		snapAndDestroy();
+	}
+
+	/// <summary>
+	/// Keeps leave locomotion animation speed aligned with NavMesh movement while leaving.
+	/// </summary>
+	/// <param name="_forceIdle">When true, forces zero locomotion output.</param>
+	private void updateLeaveLocomotionOutputs(bool _forceIdle = false)
+	{
+		if (!animator || !navMeshAgent) { return; }
+
+		float _movementSpeed = 0f;
+		if (!_forceIdle && !leaveAnimationStarted && !navMeshAgent.isStopped)
+		{
+			float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
+			if (_velocitySqrMagnitude <= 0.0001f && navMeshAgent.hasPath && !navMeshAgent.pathPending)
+			{
+				_velocitySqrMagnitude = navMeshAgent.desiredVelocity.sqrMagnitude;
+			}
+
+			if (_velocitySqrMagnitude > 0f)
+			{
+				_movementSpeed = Mathf.Sqrt(_velocitySqrMagnitude);
+			}
+		}
+
+		animator.SetFloat(velocityAnimatorSpeedParameterHash, _movementSpeed);
+		animator.SetFloat(speedMagnitudeAnimatorSpeedParameterHash, _movementSpeed);
 	}
 
 	private void snapAndDestroy()
