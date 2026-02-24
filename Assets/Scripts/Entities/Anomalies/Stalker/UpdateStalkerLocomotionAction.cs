@@ -13,7 +13,11 @@ using Action = Unity.Behavior.Action;
 public partial class UpdateStalkerLocomotionAction : Action
 {
 	private const string defaultAnimatorSpeedParameter = "Velocity";
+	private const string velocityAnimatorSpeedParameter = "Velocity";
+	private const string speedMagnitudeAnimatorSpeedParameter = "SpeedMagnitude";
 	private const string defaultWalkingAudioSourceChild = "LowLookPoint";
+	private static readonly int velocityAnimatorSpeedParameterHash = Animator.StringToHash(velocityAnimatorSpeedParameter);
+	private static readonly int speedMagnitudeAnimatorSpeedParameterHash = Animator.StringToHash(speedMagnitudeAnimatorSpeedParameter);
 
 	/// <summary>
 	/// Animator float parameter receiving current move speed magnitude.
@@ -46,6 +50,10 @@ public partial class UpdateStalkerLocomotionAction : Action
 	private int cachedAnimatorParameterHash;
 	private float lastAnimatorSpeedValue;
 	private bool hasAnimatorSpeedValue;
+	private string cachedAnimatorParameterPresenceName;
+	private bool hasConfiguredAnimatorFloatParameter;
+	private bool hasVelocityAnimatorFloatParameter;
+	private bool hasSpeedMagnitudeAnimatorFloatParameter;
 
 	/// <summary>
 	/// Applies one locomotion output update from the current <see cref="NavMeshAgent"/> state.
@@ -69,15 +77,17 @@ public partial class UpdateStalkerLocomotionAction : Action
 			{
 				cachedAnimatorParameterName = _parameterName;
 				cachedAnimatorParameterHash = Animator.StringToHash(_parameterName);
+				cachedAnimatorParameterPresenceName = null;
 				hasAnimatorSpeedValue = false;
 			}
+			refreshAnimatorParameterPresence(_parameterName);
 
 			float _velocityMagnitude = Mathf.Sqrt(_velocitySqrMagnitude);
 			if (!hasAnimatorSpeedValue || !Mathf.Approximately(_velocityMagnitude, lastAnimatorSpeedValue))
 			{
 				lastAnimatorSpeedValue = _velocityMagnitude;
 				hasAnimatorSpeedValue = true;
-				animator.SetFloat(cachedAnimatorParameterHash, _velocityMagnitude);
+				setAnimatorSpeed(_velocityMagnitude);
 			}
 		}
 
@@ -130,5 +140,62 @@ public partial class UpdateStalkerLocomotionAction : Action
 		}
 
 		return navMeshAgent;
+	}
+
+	/// <summary>
+	/// Caches which float animator parameters are available for locomotion speed writes.
+	/// </summary>
+	private void refreshAnimatorParameterPresence(string _configuredParameterName)
+	{
+		if (string.Equals(cachedAnimatorParameterPresenceName, _configuredParameterName, StringComparison.Ordinal)) { return; }
+
+		hasConfiguredAnimatorFloatParameter = false;
+		hasVelocityAnimatorFloatParameter = false;
+		hasSpeedMagnitudeAnimatorFloatParameter = false;
+
+		AnimatorControllerParameter[] _parameters = animator.parameters;
+		for (int _i = 0; _i < _parameters.Length; _i++)
+		{
+			AnimatorControllerParameter _parameter = _parameters[_i];
+			if (_parameter.type != AnimatorControllerParameterType.Float) { continue; }
+
+			if (!hasConfiguredAnimatorFloatParameter && string.Equals(_parameter.name, _configuredParameterName, StringComparison.Ordinal))
+			{
+				hasConfiguredAnimatorFloatParameter = true;
+			}
+
+			if (!hasVelocityAnimatorFloatParameter && string.Equals(_parameter.name, velocityAnimatorSpeedParameter, StringComparison.Ordinal))
+			{
+				hasVelocityAnimatorFloatParameter = true;
+			}
+
+			if (!hasSpeedMagnitudeAnimatorFloatParameter && string.Equals(_parameter.name, speedMagnitudeAnimatorSpeedParameter, StringComparison.Ordinal))
+			{
+				hasSpeedMagnitudeAnimatorFloatParameter = true;
+			}
+		}
+
+		cachedAnimatorParameterPresenceName = _configuredParameterName;
+	}
+
+	/// <summary>
+	/// Writes locomotion speed to configured and known fallback animator parameters.
+	/// </summary>
+	private void setAnimatorSpeed(float _speedMagnitude)
+	{
+		if (hasConfiguredAnimatorFloatParameter) { animator.SetFloat(cachedAnimatorParameterHash, _speedMagnitude); }
+		else if (hasSpeedMagnitudeAnimatorFloatParameter) { animator.SetFloat(speedMagnitudeAnimatorSpeedParameterHash, _speedMagnitude); }
+		else if (hasVelocityAnimatorFloatParameter) { animator.SetFloat(velocityAnimatorSpeedParameterHash, _speedMagnitude); }
+
+		// Keep common parameters in sync to avoid skating when graph is configured to one but the blend tree reads the other.
+		if (hasSpeedMagnitudeAnimatorFloatParameter && cachedAnimatorParameterHash != speedMagnitudeAnimatorSpeedParameterHash)
+		{
+			animator.SetFloat(speedMagnitudeAnimatorSpeedParameterHash, _speedMagnitude);
+		}
+
+		if (hasVelocityAnimatorFloatParameter && cachedAnimatorParameterHash != velocityAnimatorSpeedParameterHash)
+		{
+			animator.SetFloat(velocityAnimatorSpeedParameterHash, _speedMagnitude);
+		}
 	}
 }
