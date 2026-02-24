@@ -104,7 +104,7 @@ namespace Game.Manager
 			hudManager = GetComponent<HUDManager>();
 			gameLength = Mathf.Max(30f, gameLength);
 			baseAnomalyCooldown = Mathf.Max(2f, anomalyCooldown);
-			baseStalkerCooldown = Mathf.Max(10f, stalkerCooldown);
+			baseStalkerCooldown = stalkerCooldown;
 			anomalyCooldown = baseAnomalyCooldown;
 			stalkerCooldown = baseStalkerCooldown;
 		}
