@@ -15,6 +15,8 @@ public partial class TickStalkerLifetimeAction : Action
 	private static readonly int leavingHash = Animator.StringToHash("IsLeaving");
 	private static readonly int velocityAnimatorSpeedParameterHash = Animator.StringToHash("Velocity");
 	private static readonly int speedMagnitudeAnimatorSpeedParameterHash = Animator.StringToHash("SpeedMagnitude");
+	private static readonly int windowEnterStateHash = Animator.StringToHash("WindowEnter");
+	private static readonly int windowEnterFullPathHash = Animator.StringToHash("Base Layer.WindowEnter");
 	private const string defaultExitTag = "StalkerEnterExit";
 
 	/// <summary>
@@ -58,6 +60,12 @@ public partial class TickStalkerLifetimeAction : Action
 	/// </summary>
 	[SerializeReference]
 	public BlackboardVariable<float> MaximumLeaveDuration = new(8f);
+
+	/// <summary>
+	/// Maximum time allowed for the leave animation to complete before fallback despawn.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> LeaveAnimationTimeout = new(12f);
 
 	/// <summary>
 	/// Optional blackboard flag updated with current leave state.
@@ -278,7 +286,7 @@ public partial class TickStalkerLifetimeAction : Action
 		}
 
 		float _maximumLeaveDuration = Mathf.Max(1f, MaximumLeaveDuration != null ? MaximumLeaveDuration.Value : 8f);
-		if (leaveTime >= _maximumLeaveDuration)
+		if (!leaveAnimationStarted && leaveTime >= _maximumLeaveDuration)
 		{
 			UnityEngine.Object.Destroy(GameObject);
 			return;
@@ -304,12 +312,24 @@ public partial class TickStalkerLifetimeAction : Action
 		if (leaveAnimationStarted)
 		{
 			updateLeaveLocomotionOutputs(_forceIdle: true);
-			if (animationEvents != null)
+
+			float _leaveAnimationTimeout = Mathf.Max(1f, LeaveAnimationTimeout != null ? LeaveAnimationTimeout.Value : 12f);
+			if (leaveTime >= _leaveAnimationTimeout)
 			{
-				if (!animationEvents.ConsumeLeaveAnimationCompleted()) { return; }
+				snapAndDestroy();
+				return;
 			}
 
-			snapAndDestroy();
+			if (animationEvents != null)
+			{
+				if (animationEvents.ConsumeLeaveAnimationCompleted())
+				{
+					snapAndDestroy();
+					return;
+				}
+			}
+
+			if (animator != null && isWindowEnterAnimationCompleted()) { snapAndDestroy(); }
 			return;
 		}
 
@@ -322,11 +342,13 @@ public partial class TickStalkerLifetimeAction : Action
 		navMeshAgent.velocity = Vector3.zero;
 		navMeshAgent.isStopped = true;
 		leaveAnimationStarted = true;
+		leaveTime = 0f;
 		updateLeaveLocomotionOutputs(_forceIdle: true);
 
 		if (animator)
 		{
 			animator.SetBool(leavingHash, true);
+			animator.CrossFadeInFixedTime(windowEnterFullPathHash, 0.05f, 0, 0f);
 			if (animationEvents != null) { return; }
 		}
 
@@ -358,6 +380,20 @@ public partial class TickStalkerLifetimeAction : Action
 
 		animator.SetFloat(velocityAnimatorSpeedParameterHash, _movementSpeed);
 		animator.SetFloat(speedMagnitudeAnimatorSpeedParameterHash, _movementSpeed);
+	}
+
+	/// <summary>
+	/// Returns true when the animator has reached the end of the window animation state.
+	/// </summary>
+	private bool isWindowEnterAnimationCompleted()
+	{
+		if (!animator || animator.IsInTransition(0)) { return false; }
+
+		AnimatorStateInfo _state = animator.GetCurrentAnimatorStateInfo(0);
+		bool _isWindowEnter = _state.shortNameHash == windowEnterStateHash || _state.fullPathHash == windowEnterFullPathHash;
+		if (!_isWindowEnter) { return false; }
+
+		return _state.normalizedTime >= 0.99f;
 	}
 
 	private void snapAndDestroy()
