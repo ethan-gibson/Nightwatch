@@ -7,7 +7,7 @@ namespace Game.UI
 	{
 		public void Play()
 		{
-			SceneManager.LoadScene("AnomalyTest");
+			SceneManager.LoadScene("GameMap");
 		}
 
 		public void Quit()
