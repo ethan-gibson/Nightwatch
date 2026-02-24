@@ -40,6 +40,12 @@ public partial class TickStalkerLifetimeAction : Action
 	public BlackboardVariable<float> LeaveSnapHeightOffset = new(1.3f);
 
 	/// <summary>
+	/// Distance threshold used to consider the agent arrived at the exit before playing leave animation.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> LeaveArrivalDistance = new(0.35f);
+
+	/// <summary>
 	/// Interval used to retry exit path requests while leaving.
 	/// </summary>
 	[SerializeReference]
@@ -60,6 +66,7 @@ public partial class TickStalkerLifetimeAction : Action
 	private Transform cachedTransform;
 	private NavMeshAgent navMeshAgent;
 	private Animator animator;
+	private StalkerAnimationEvents animationEvents;
 	private Collider actorCollider;
 	private GameObject[] exitPoints;
 	private string cachedExitTag;
@@ -71,6 +78,7 @@ public partial class TickStalkerLifetimeAction : Action
 	private bool hasLastTickTimestamp;
 	private Vector3 exitTargetPosition;
 	private bool hasExitTargetPosition;
+	private bool leaveAnimationStarted;
 
 	/// <summary>
 	/// Caches references used by lifecycle ticking and performs the first tick.
@@ -116,6 +124,7 @@ public partial class TickStalkerLifetimeAction : Action
 		cachedTransform ??= GameObject.transform;
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
 		animator ??= GameObject.GetComponent<Animator>();
+		animationEvents ??= GameObject.GetComponent<StalkerAnimationEvents>();
 		actorCollider ??= GameObject.GetComponent<Collider>();
 		return true;
 	}
@@ -187,8 +196,11 @@ public partial class TickStalkerLifetimeAction : Action
 		isLeaving = true;
 		leaveTime = 0f;
 		nextLeaveRepathTime = 0f;
+		leaveAnimationStarted = false;
+		hasExitTargetPosition = false;
+		animationEvents?.ConsumeLeaveAnimationCompleted();
 
-		if (animator) { animator.SetBool(leavingHash, true); }
+		if (animator) { animator.SetBool(leavingHash, false); }
 		moveToClosestExit();
 	}
 
@@ -269,7 +281,7 @@ public partial class TickStalkerLifetimeAction : Action
 		if (Time.time >= nextLeaveRepathTime)
 		{
 			nextLeaveRepathTime = Time.time + _leaveRepathInterval;
-			if (!navMeshAgent.hasPath || navMeshAgent.pathStatus != NavMeshPathStatus.PathComplete)
+			if (!leaveAnimationStarted && (!navMeshAgent.hasPath || navMeshAgent.pathStatus != NavMeshPathStatus.PathComplete))
 			{
 				if (hasExitTargetPosition)
 				{
@@ -282,14 +294,38 @@ public partial class TickStalkerLifetimeAction : Action
 			}
 		}
 
+		if (leaveAnimationStarted)
+		{
+			if (animationEvents != null)
+			{
+				if (!animationEvents.ConsumeLeaveAnimationCompleted()) { return; }
+			}
+
+			snapAndDestroy();
+			return;
+		}
+
 		if (navMeshAgent.pathPending) { return; }
 		if (!navMeshAgent.hasPath) { return; }
-		if (navMeshAgent.remainingDistance > navMeshAgent.stoppingDistance) { return; }
+		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
+		if (navMeshAgent.remainingDistance > _leaveArrivalDistance) { return; }
 
 		navMeshAgent.velocity = Vector3.zero;
 		navMeshAgent.isStopped = true;
-		if (actorCollider) { actorCollider.enabled = false; }
+		leaveAnimationStarted = true;
 
+		if (animator)
+		{
+			animator.SetBool(leavingHash, true);
+			if (animationEvents != null) { return; }
+		}
+
+		snapAndDestroy();
+	}
+
+	private void snapAndDestroy()
+	{
+		if (actorCollider) { actorCollider.enabled = false; }
 		float _leaveOffset = LeaveSnapHeightOffset != null ? LeaveSnapHeightOffset.Value : 1.3f;
 		cachedTransform.position = navMeshAgent.destination + new Vector3(0f, _leaveOffset, 0f);
 		UnityEngine.Object.Destroy(GameObject);
