@@ -186,8 +186,8 @@ public partial class TryKillHiddenPlayerAction : Action
 	/// <returns>Configured closet look point, fallback high look point, or self transform.</returns>
 	private Transform resolveClosetLookPoint()
 	{
-		GameObject _configuredLookPoint = ClosetLookPoint?.Value;
-		if (_configuredLookPoint) { return _configuredLookPoint.transform; }
+		if (tryGetLookPointTransform(ClosetLookPoint, out Transform _configuredLookPointTransform)) { return _configuredLookPointTransform; }
+		if (!fallbackHighLookPoint && cachedTransform) { fallbackHighLookPoint = cachedTransform.Find(highLookPointName); }
 		if (fallbackHighLookPoint) { return fallbackHighLookPoint; }
 		return cachedTransform;
 	}
@@ -198,9 +198,33 @@ public partial class TryKillHiddenPlayerAction : Action
 	/// <returns>Configured under-bed look point, fallback low look point, or self transform.</returns>
 	private Transform resolveUnderBedLookPoint()
 	{
-		GameObject _configuredLookPoint = UnderBedLookPoint?.Value;
-		if (_configuredLookPoint) { return _configuredLookPoint.transform; }
+		if (tryGetLookPointTransform(UnderBedLookPoint, out Transform _configuredLookPointTransform)) { return _configuredLookPointTransform; }
+		if (!fallbackLowLookPoint && cachedTransform) { fallbackLowLookPoint = cachedTransform.Find(lowLookPointName); }
 		if (fallbackLowLookPoint) { return fallbackLowLookPoint; }
 		return cachedTransform;
+	}
+
+	/// <summary>
+	/// Safely resolves a look point transform from a blackboard game object variable.
+	/// </summary>
+	/// <param name="_lookPointVariable">Source look point variable.</param>
+	/// <param name="_lookPointTransform">Resolved transform when available.</param>
+	/// <returns><c>true</c> when a valid transform is resolved; otherwise <c>false</c>.</returns>
+	private static bool tryGetLookPointTransform(BlackboardVariable<GameObject> _lookPointVariable, out Transform _lookPointTransform)
+	{
+		_lookPointTransform = null;
+		if (_lookPointVariable == null) { return false; }
+
+		try
+		{
+			GameObject _configuredLookPoint = _lookPointVariable.Value;
+			if (!_configuredLookPoint) { return false; }
+			_lookPointTransform = _configuredLookPoint.transform;
+			return _lookPointTransform != null;
+		}
+		catch (Exception)
+		{
+			return false;
+		}
 	}
 }

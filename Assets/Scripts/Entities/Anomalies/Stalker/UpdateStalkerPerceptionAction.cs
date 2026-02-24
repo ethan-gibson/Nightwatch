@@ -91,6 +91,19 @@ public partial class UpdateStalkerPerceptionAction : Action
 	[SerializeReference]
 	public BlackboardVariable<float> LostSightMemoryFallback = new(4f);
 
+	/// <summary>
+	/// If greater than zero, the stalker can detect the player in close range even outside the normal FOV gate.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> CloseRangeVisionDistance = new(2.2f);
+
+	/// <summary>
+	/// When true, visibility raycasts treat the configured mask as occluders, not as required target layers.
+	/// If no occluder is hit before the player point, visibility is granted.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<bool> TreatRaycastMaskAsOccludersOnly = new(true);
+
 	private Transform cachedTransform;
 	private BehaviorGraphAgent graphAgent;
 	private BehaviorGraph cachedGraph;
@@ -238,6 +251,9 @@ public partial class UpdateStalkerPerceptionAction : Action
 		QueryTriggerInteraction _queryTriggerInteraction = IgnoreTriggerColliders != null && IgnoreTriggerColliders.Value
 			? QueryTriggerInteraction.Ignore
 			: QueryTriggerInteraction.Collide;
+		float _closeRangeDistance = Mathf.Max(0f, CloseRangeVisionDistance != null ? CloseRangeVisionDistance.Value : 2.2f);
+		float _closeRangeDistanceSqr = _closeRangeDistance * _closeRangeDistance;
+		bool _maskAsOccludersOnly = TreatRaycastMaskAsOccludersOnly == null || TreatRaycastMaskAsOccludersOnly.Value;
 
 		for (int _i = 0; _i < playerVisibilityPoints.Length; _i++)
 		{
@@ -247,9 +263,17 @@ public partial class UpdateStalkerPerceptionAction : Action
 
 			float _distance = Mathf.Sqrt(_distanceSqr);
 			Vector3 _directionNormalized = _directionToPoint / _distance;
-			if (Vector3.Dot(cachedTransform.forward, _directionNormalized) < _cosHalfFov) { continue; }
+			bool _passesFov = Vector3.Dot(cachedTransform.forward, _directionNormalized) >= _cosHalfFov;
+			bool _passesCloseRange = _closeRangeDistanceSqr > 0f && _distanceSqr <= _closeRangeDistanceSqr;
+			if (!_passesFov && !_passesCloseRange) { continue; }
 
-			if (!Physics.Raycast(_origin, _directionNormalized, out RaycastHit _hit, _distance, _raycastMask, _queryTriggerInteraction)) { continue; }
+			if (!Physics.Raycast(_origin, _directionNormalized, out RaycastHit _hit, _distance, _raycastMask, _queryTriggerInteraction))
+			{
+				// If the mask does not include player layers, no occluder-hit still means clear line to this point.
+				if (_maskAsOccludersOnly) { return true; }
+				continue;
+			}
+
 			if (_hit.transform != cachedPlayerTransform && !_hit.transform.IsChildOf(cachedPlayerTransform)) { continue; }
 			return true;
 		}

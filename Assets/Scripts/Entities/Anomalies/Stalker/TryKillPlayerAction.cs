@@ -158,9 +158,33 @@ public partial class TryKillPlayerAction : Action
 	/// <returns>Assigned look point, fallback look point, or self transform in that order.</returns>
 	private Transform resolveLookPoint()
 	{
-		GameObject _configuredLookPoint = LookPoint?.Value;
-		if (_configuredLookPoint) { return _configuredLookPoint.transform; }
+		if (tryGetConfiguredLookPoint(out Transform _configuredLookPointTransform)) { return _configuredLookPointTransform; }
+
+		if (!fallbackLookPoint && cachedTransform) { fallbackLookPoint = cachedTransform.Find(defaultLookPointName); }
 		if (fallbackLookPoint) { return fallbackLookPoint; }
 		return cachedTransform;
+	}
+
+	/// <summary>
+	/// Safely resolves a configured look point transform from blackboard input.
+	/// </summary>
+	/// <param name="_lookPointTransform">Resolved transform when available.</param>
+	/// <returns><c>true</c> when a valid configured transform is available; otherwise <c>false</c>.</returns>
+	private bool tryGetConfiguredLookPoint(out Transform _lookPointTransform)
+	{
+		_lookPointTransform = null;
+		if (LookPoint == null) { return false; }
+
+		try
+		{
+			GameObject _configuredLookPoint = LookPoint.Value;
+			if (!_configuredLookPoint) { return false; }
+			_lookPointTransform = _configuredLookPoint.transform;
+			return _lookPointTransform != null;
+		}
+		catch (Exception)
+		{
+			return false;
+		}
 	}
 }

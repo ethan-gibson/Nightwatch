@@ -13,6 +13,7 @@ using Action = Unity.Behavior.Action;
 public partial class TickStalkerLifetimeAction : Action
 {
 	private static readonly int leavingHash = Animator.StringToHash("IsLeaving");
+	private const string defaultExitTag = "StalkerEnterExit";
 
 	/// <summary>
 	/// Optional custom delta time. When zero or negative, <see cref="Time.deltaTime"/> is used.
@@ -39,6 +40,18 @@ public partial class TickStalkerLifetimeAction : Action
 	public BlackboardVariable<float> LeaveSnapHeightOffset = new(1.3f);
 
 	/// <summary>
+	/// Interval used to retry exit path requests while leaving.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> LeaveRepathInterval = new(0.75f);
+
+	/// <summary>
+	/// Maximum time allowed in leave mode before force-despawn fallback.
+	/// </summary>
+	[SerializeReference]
+	public BlackboardVariable<float> MaximumLeaveDuration = new(8f);
+
+	/// <summary>
 	/// Optional blackboard flag updated with current leave state.
 	/// </summary>
 	[SerializeReference]
@@ -52,6 +65,12 @@ public partial class TickStalkerLifetimeAction : Action
 	private string cachedExitTag;
 	private float activeTime;
 	private bool isLeaving;
+	private float leaveTime;
+	private float nextLeaveRepathTime;
+	private float lastTickTimestamp;
+	private bool hasLastTickTimestamp;
+	private Vector3 exitTargetPosition;
+	private bool hasExitTargetPosition;
 
 	/// <summary>
 	/// Caches references used by lifecycle ticking and performs the first tick.
@@ -104,11 +123,24 @@ public partial class TickStalkerLifetimeAction : Action
 	/// <summary>
 	/// Resolves tick delta time for this update.
 	/// </summary>
-	/// <returns>Configured delta time when positive; otherwise <see cref="Time.deltaTime"/>.</returns>
+	/// <returns>
+	/// Configured delta time when positive; otherwise elapsed realtime between consecutive ticks.
+	/// </returns>
 	private float resolveDeltaTime()
 	{
 		if (DeltaTime != null && DeltaTime.Value > 0f) { return DeltaTime.Value; }
-		return Time.deltaTime;
+
+		float _currentTime = Time.time;
+		if (!hasLastTickTimestamp)
+		{
+			hasLastTickTimestamp = true;
+			lastTickTimestamp = _currentTime;
+			return 0f;
+		}
+
+		float _deltaTime = Mathf.Max(0f, _currentTime - lastTickTimestamp);
+		lastTickTimestamp = _currentTime;
+		return _deltaTime;
 	}
 
 	/// <summary>
@@ -120,6 +152,7 @@ public partial class TickStalkerLifetimeAction : Action
 	{
 		if (isLeaving)
 		{
+			leaveTime += Mathf.Max(0f, _deltaTime);
 			updateLeavingState();
 			syncLeaveFlag();
 			return Status.Running;
@@ -152,6 +185,8 @@ public partial class TickStalkerLifetimeAction : Action
 	{
 		if (isLeaving) { return; }
 		isLeaving = true;
+		leaveTime = 0f;
+		nextLeaveRepathTime = 0f;
 
 		if (animator) { animator.SetBool(leavingHash, true); }
 		moveToClosestExit();
@@ -162,12 +197,10 @@ public partial class TickStalkerLifetimeAction : Action
 	/// </summary>
 	private void refreshExitPointsIfNeeded()
 	{
-		string _exitTag = ExitTag != null ? ExitTag.Value : "StalkerEnterExit";
+		string _exitTag = ExitTag != null ? ExitTag.Value : defaultExitTag;
 		if (string.IsNullOrWhiteSpace(_exitTag))
 		{
-			cachedExitTag = string.Empty;
-			exitPoints = null;
-			return;
+			_exitTag = defaultExitTag;
 		}
 
 		if (string.Equals(cachedExitTag, _exitTag, StringComparison.Ordinal) && exitPoints != null) { return; }
@@ -204,8 +237,12 @@ public partial class TickStalkerLifetimeAction : Action
 
 		if (!_closestExit) { return; }
 
+		exitTargetPosition = _closestExit.position;
+		hasExitTargetPosition = true;
 		navMeshAgent.isStopped = false;
-		navMeshAgent.SetDestination(_closestExit.position);
+		if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
+		if (NavMesh.SamplePosition(_closestExit.position, out NavMeshHit _exitHit, 1.25f, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_exitHit.position); }
+		else { navMeshAgent.SetDestination(_closestExit.position); }
 	}
 
 	/// <summary>
@@ -221,7 +258,32 @@ public partial class TickStalkerLifetimeAction : Action
 			return;
 		}
 
+		float _maximumLeaveDuration = Mathf.Max(1f, MaximumLeaveDuration != null ? MaximumLeaveDuration.Value : 8f);
+		if (leaveTime >= _maximumLeaveDuration)
+		{
+			UnityEngine.Object.Destroy(GameObject);
+			return;
+		}
+
+		float _leaveRepathInterval = Mathf.Max(0.1f, LeaveRepathInterval != null ? LeaveRepathInterval.Value : 0.75f);
+		if (Time.time >= nextLeaveRepathTime)
+		{
+			nextLeaveRepathTime = Time.time + _leaveRepathInterval;
+			if (!navMeshAgent.hasPath || navMeshAgent.pathStatus != NavMeshPathStatus.PathComplete)
+			{
+				if (hasExitTargetPosition)
+				{
+					navMeshAgent.isStopped = false;
+					if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
+					if (NavMesh.SamplePosition(exitTargetPosition, out NavMeshHit _exitHit, 1.25f, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_exitHit.position); }
+					else { navMeshAgent.SetDestination(exitTargetPosition); }
+				}
+				else { moveToClosestExit(); }
+			}
+		}
+
 		if (navMeshAgent.pathPending) { return; }
+		if (!navMeshAgent.hasPath) { return; }
 		if (navMeshAgent.remainingDistance > navMeshAgent.stoppingDistance) { return; }
 
 		navMeshAgent.velocity = Vector3.zero;
