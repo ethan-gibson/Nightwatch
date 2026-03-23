@@ -52,10 +52,12 @@ Material:
     - _CastShadows: 1
     - _Cull: 2
     - _DstBlend: 10
+    - _DstBlendAlpha: 10
     - _NoiseScale: 300
     - _QueueControl: 0
     - _QueueOffset: 0
     - _SrcBlend: 5
+    - _SrcBlendAlpha: 1
     - _StaticCoverage: 0
     - _Surface: 1
     - _ZTest: 4

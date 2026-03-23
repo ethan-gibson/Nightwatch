@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -29,6 +30,7 @@ public partial class GetPatrolPointAction : Action
 	private BehaviorGraph cachedGraph;
 	private Transform cachedTransform;
 	private BlackboardVariable<Vector3> searchPointVariable;
+	private PathFindingAgent pathfindingAgent;
 
 	/// <summary>
 	/// Samples a patrol point and stores it in the graph blackboard.
@@ -44,7 +46,7 @@ public partial class GetPatrolPointAction : Action
 		float _radius = Mathf.Max(0.1f, PatrolRadius.Value);
 		int _attempts = Mathf.Max(1, SampleAttempts.Value);
 
-		if (!trySamplePoint(_origin, _radius, _attempts, out Vector3 _patrolPoint)) { return Status.Failure; }
+		if (!tryGetRandomOctreeNode(_origin, _radius, _attempts, out Vector3 _patrolPoint)) { return Status.Failure; }
 
 		searchPointVariable.Value = _patrolPoint;
 		return Status.Success;
@@ -92,7 +94,11 @@ public partial class GetPatrolPointAction : Action
 
 		if (searchPointVariable == null && !graphAgent.GetVariable(searchPointVariableName, out searchPointVariable)) { return false; }
 
-		return true;
+		if (pathfindingAgent) { return true; }
+		pathfindingAgent = GameObject.GetComponent<PathFindingAgent>();
+		if (pathfindingAgent) { return true; }
+		return false;
+
 	}
 
 	/// <summary>
@@ -105,22 +111,29 @@ public partial class GetPatrolPointAction : Action
 	/// <returns>
 	/// <c>true</c> when a valid point is found; otherwise <c>false</c>.
 	/// </returns>
-	private static bool trySamplePoint(Vector3 _origin, float _radius, int _attempts, out Vector3 _point)
+	private bool tryGetRandomOctreeNode(Vector3 _origin, float _radius, int _attempts, out Vector3 _point)
 	{
 		for (int _attempt = 0; _attempt < _attempts; _attempt++)
 		{
-			Vector2 _randomCircle = UnityEngine.Random.insideUnitCircle * _radius;
-			Vector3 _randomDirection = _origin + new Vector3(_randomCircle.x, 0f, _randomCircle.y);
-			if (!NavMesh.SamplePosition(_randomDirection, out NavMeshHit _hit, _radius, NavMesh.AllAreas)) { continue; }
-			_point = _hit.position;
+			_point = Vector3.zero;
+			var _freeLeaves = pathfindingAgent.FreeLeaves;
+			if (_freeLeaves == null || _freeLeaves.Count == 0) return false;
+
+			Vector3 origin = cachedTransform.position;
+			var _candidates = _freeLeaves.FindAll(node => Vector3.Distance(node.Bounds.center, origin) <= PatrolRadius.Value);
+
+			if (_candidates.Count == 0) return false;
+
+			int _randomIndex = UnityEngine.Random.Range(0, _candidates.Count);
+			_point = _candidates[_randomIndex].Bounds.center;
 			return true;
 		}
 
-		if (NavMesh.SamplePosition(_origin, out NavMeshHit _fallbackHit, _radius, NavMesh.AllAreas))
-		{
-			_point = _fallbackHit.position;
-			return true;
-		}
+		// if (NavMesh.SamplePosition(_origin, out NavMeshHit _fallbackHit, _radius, NavMesh.AllAreas))
+		// {
+		// 	_point = _fallbackHit.position;
+		// 	return true;
+		// }
 
 		_point = _origin;
 		return false;

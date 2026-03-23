@@ -42,7 +42,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 302c8c9df0d6247ec988a3121ca0f4f0, type: 3}
+  m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 302c8c9df0d6247ec988a3121ca0f4f0, type: 3}
   m_PlayOnAwake: 0
   m_Volume: 1
@@ -171,7 +171,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 96a5724a735ad4c1285f1e4e11d0f6f2, type: 3}
+  m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 96a5724a735ad4c1285f1e4e11d0f6f2, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 1
@@ -306,6 +306,8 @@ GameObject:
   - component: {fileID: 5162260404718283776}
   - component: {fileID: 5512799092692653605}
   - component: {fileID: 8145493782162998653}
+  - component: {fileID: 3683058813620863463}
+  - component: {fileID: 2156608346549144500}
   m_Layer: 0
   m_Name: Stalker
   m_TagString: Anomaly
@@ -590,6 +592,48 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &3683058813620863463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7926580517754755083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f6bdeb674624b11a274d0f0b4f7c8ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Entities::Game.Entities.Octree.PathFindingAgent
+  Target: {fileID: 0}
+  agentRadius: 2
+  moveSpeed: 3
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 1024
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  groundCheckDistance: 2
+--- !u!114 &2156608346549144500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7926580517754755083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0f88cdf849944a7ae3bee86f7f106ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Entities::Game.Entities.Octree.OctreeDebugger
+  ShowFreeNodes: 1
+  ShowOccupiedNodes: 1
+  ShowPath: 1
+  ShowNeighbors: 1
+  FreeNodeColor: {r: 0, g: 1, b: 0, a: 0.5}
+  OccupiedNodeColor: {r: 1, g: 0, b: 0, a: 0.5}
+  PathColor: {r: 0, g: 1, b: 1, a: 1}
+  NeighborColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
 --- !u!1001 &3790947040463396481
 PrefabInstance:
   m_ObjectHideFlags: 0
