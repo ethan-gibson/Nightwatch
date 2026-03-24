@@ -13,6 +13,7 @@ namespace Game.Entities
 	{
 		private PlayerInput playerInput;
 		private bool isCrouched;
+		private bool inputActionsBound;
 		private Collider playerCollider;
 
 		public delegate void LookInputEvent(InputAction.CallbackContext _ctx);
@@ -54,24 +55,32 @@ namespace Game.Entities
 
 		private void setInputActions()
 		{
-			playerInput.actions["Move"].performed += _ctx => onMoveInput?.Invoke(_ctx.ReadValue<Vector2>());
+			if (playerInput == null || inputActionsBound) { return; }
+
+			playerInput.actions["Move"].performed += onMovePerformed;
+			playerInput.actions["Move"].canceled += onMoveCanceled;
 			onMoveInput += movement;
-			playerInput.actions["Look"].performed += _ctx => onLookInput?.Invoke(_ctx);
+			playerInput.actions["Look"].performed += onLookPerformed;
 			onLookInput += playerCamera.OnLook;
-			playerInput.actions["Crouch"].performed += _ctx => onCrouchInput?.Invoke(_ctx);
+			playerInput.actions["Crouch"].performed += onCrouchPerformed;
 			onCrouchInput += crouch;
-			playerInput.actions["Interact"].started += _ => exitHiding();
+			playerInput.actions["Interact"].started += onInteractStarted;
+			inputActionsBound = true;
 		}
 
 		private void removeInputActions()
 		{
-			playerInput.actions["Move"].performed -= _ctx => onMoveInput?.Invoke(_ctx.ReadValue<Vector2>());
-			playerInput.actions["Look"].performed -= _ctx => onMoveInput?.Invoke(_ctx.ReadValue<Vector2>());
-			playerInput.actions["Crouch"].performed -= _ctx => onCrouchInput?.Invoke(_ctx);
-			playerInput.actions["Interact"].started -= _ => exitHiding();
+			if (playerInput == null || !inputActionsBound) { return; }
+
+			playerInput.actions["Move"].performed -= onMovePerformed;
+			playerInput.actions["Move"].canceled -= onMoveCanceled;
+			playerInput.actions["Look"].performed -= onLookPerformed;
+			playerInput.actions["Crouch"].performed -= onCrouchPerformed;
+			playerInput.actions["Interact"].started -= onInteractStarted;
 			onMoveInput -= movement;
-			onLookInput -= playerCamera.OnLook;
+			if (playerCamera != null) { onLookInput -= playerCamera.OnLook; }
 			onCrouchInput -= crouch;
+			inputActionsBound = false;
 		}
 
 		private void LateUpdate()
@@ -160,13 +169,54 @@ namespace Game.Entities
 			isHiding = true;
 		}
 
+		private void onMovePerformed(InputAction.CallbackContext _ctx)
+		{
+			onMoveInput?.Invoke(_ctx.ReadValue<Vector2>());
+		}
+
+		private void onMoveCanceled(InputAction.CallbackContext _ctx)
+		{
+			onMoveInput?.Invoke(Vector2.zero);
+		}
+
+		private void onLookPerformed(InputAction.CallbackContext _ctx)
+		{
+			onLookInput?.Invoke(_ctx);
+		}
+
+		private void onCrouchPerformed(InputAction.CallbackContext _ctx)
+		{
+			onCrouchInput?.Invoke(_ctx);
+		}
+
+		private void onInteractStarted(InputAction.CallbackContext _ctx)
+		{
+			exitHiding();
+		}
+
+		private void disablePlayerControl()
+		{
+			removeInputActions();
+			ClearMovementState();
+			speed = 0f;
+			if (playerCamera != null) { playerCamera.SetMouseSens(0f); }
+
+			if (characterController != null && characterController.enabled)
+			{
+				characterController.Move(Vector3.zero);
+			}
+
+			if (audioSource != null && audioSource.isPlaying)
+			{
+				audioSource.Stop();
+			}
+		}
+
 		public void lockPlayer(Transform lookPoint, float lookTime)
 		{
 			camLookAt(lookPoint, lookTime).Forget();
 			Camera.main.fieldOfView = 40f; //zoom in on killer
-			playerCamera.SetMouseSens(0f);
-			removeInputActions();
-			velocity = Vector3.zero;
+			disablePlayerControl();
 		}
 
 		public bool CheckIfHiding()
@@ -186,6 +236,7 @@ namespace Game.Entities
 
 		public void InvokePlayerDeath()
 		{
+			disablePlayerControl();
 			OnPlayerKilled?.Invoke();
 		}
 

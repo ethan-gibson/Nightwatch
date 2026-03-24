@@ -102,7 +102,7 @@ NavMeshSettings:
   m_BuildSettings:
     serializedVersion: 3
     agentTypeID: 0
-    agentRadius: 0.5
+    agentRadius: 0.4
     agentHeight: 2
     agentSlope: 45
     agentClimb: 0.4
@@ -849,15 +849,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -11.45
+      value: -8.43
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 5.749
+      value: 4.902
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 10.123
+      value: 7.748
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -888,16 +888,40 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: ShowFreeNodes
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: ShowNeighbors
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: ShowOccupiedNodes
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: agentRadius
-      value: 1
+      propertyPath: octreeSize.x
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeSize.y
+      value: 24
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeSize.z
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeOrigin.x
+      value: 2.68
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeOrigin.y
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeOrigin.z
+      value: 5.97
       objectReference: {fileID: 0}
     - target: {fileID: 7926580517754755083, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_Name

@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -51,6 +52,7 @@ public partial class RecoverStalkerIfStuckAction : Action
 
 	private Transform cachedTransform;
 	private NavMeshAgent navMeshAgent;
+	private PathFindingAgent pathfindingAgent;
 	private float stuckTimer;
 
 	/// <summary>
@@ -90,6 +92,7 @@ public partial class RecoverStalkerIfStuckAction : Action
 
 		cachedTransform ??= GameObject.transform;
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
 		return navMeshAgent;
 	}
 
@@ -99,6 +102,12 @@ public partial class RecoverStalkerIfStuckAction : Action
 	private void updateRecovery()
 	{
 		if (Enabled != null && !Enabled.Value)
+		{
+			stuckTimer = 0f;
+			return;
+		}
+
+		if (pathfindingAgent != null && !pathfindingAgent.IsUsingNavMeshMovement)
 		{
 			stuckTimer = 0f;
 			return;
@@ -115,8 +124,9 @@ public partial class RecoverStalkerIfStuckAction : Action
 
 		float _velocityThreshold = StuckVelocityThreshold != null ? StuckVelocityThreshold.Value : 0.15f;
 		float _velocityThresholdSqr = _velocityThreshold * _velocityThreshold;
+		float _desiredVelocitySqrMagnitude = navMeshAgent.desiredVelocity.sqrMagnitude;
 
-		if (navMeshAgent.remainingDistance <= _remainingDistanceThreshold || navMeshAgent.velocity.sqrMagnitude > _velocityThresholdSqr)
+		if (navMeshAgent.remainingDistance <= _remainingDistanceThreshold || _desiredVelocitySqrMagnitude <= _velocityThresholdSqr || navMeshAgent.velocity.sqrMagnitude > _velocityThresholdSqr)
 		{
 			stuckTimer = 0f;
 			return;
@@ -130,17 +140,27 @@ public partial class RecoverStalkerIfStuckAction : Action
 		stuckTimer = 0f;
 
 		float _repathRadius = Mathf.Max(0.1f, RepathRadius != null ? RepathRadius.Value : 1.5f);
+		if (pathfindingAgent != null && pathfindingAgent.TryRecoverMovement(_repathRadius))
+		{
+			return;
+		}
+
 		Vector3 _currentDestination = navMeshAgent.destination;
 		navMeshAgent.ResetPath();
 
 		if (NavMesh.SamplePosition(_currentDestination, out NavMeshHit _destinationHit, _repathRadius, NavMesh.AllAreas))
 		{
-			navMeshAgent.SetDestination(_destinationHit.position);
+			if (pathfindingAgent != null) { pathfindingAgent.SetDestination(_destinationHit.position); }
+			else { navMeshAgent.SetDestination(_destinationHit.position); }
 			return;
 		}
 
 		Vector2 _randomCircle = Random.insideUnitCircle * _repathRadius;
 		Vector3 _alternateDirection = cachedTransform.position + new Vector3(_randomCircle.x, 0f, _randomCircle.y);
-		if (NavMesh.SamplePosition(_alternateDirection, out NavMeshHit _alternateHit, _repathRadius, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_alternateHit.position); }
+		if (NavMesh.SamplePosition(_alternateDirection, out NavMeshHit _alternateHit, _repathRadius, NavMesh.AllAreas))
+		{
+			if (pathfindingAgent != null) { pathfindingAgent.SetDestination(_alternateHit.position); }
+			else { navMeshAgent.SetDestination(_alternateHit.position); }
+		}
 	}
 }

@@ -1,4 +1,5 @@
 using Game.Core;
+using Game.Entities.Octree;
 using UnityEngine;
 using Game.Manager;
 
@@ -22,6 +23,7 @@ public class Door : MonoBehaviour, IInteractable
 		//if (transform == null) { return; }
 		transform.localRotation = Quaternion.Euler(0f, _yRotation, 0f);
 		isOpen = !isOpen;
+		notifyDoorStateChanged();
 	}
 
 	private void OnCollisionEnter(Collision collision)
@@ -33,5 +35,17 @@ public class Door : MonoBehaviour, IInteractable
 	public void OnEndHover()
 	{
 		HUDManager.Instance.SetInteractionText("");
+	}
+
+	private void notifyDoorStateChanged()
+	{
+		Collider _doorCollider = GetComponentInChildren<Collider>();
+		if (_doorCollider != null)
+		{
+			OctreeDoorEvents.NotifyDoorStateChanged(_doorCollider.bounds);
+			return;
+		}
+
+		OctreeDoorEvents.NotifyDoorStateChanged(new Bounds(transform.position, Vector3.one));
 	}
 }

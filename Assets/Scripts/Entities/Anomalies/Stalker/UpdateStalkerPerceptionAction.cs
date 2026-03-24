@@ -1,9 +1,11 @@
 using System;
 using Game.Entities;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
 using Action = Unity.Behavior.Action;
+using Logger = Arti.Utilities.Logger;
 
 /// <summary>
 /// Updates stalker perception blackboard values using triple-ray visibility checks against player points.
@@ -22,7 +24,16 @@ public partial class UpdateStalkerPerceptionAction : Action
 	private const float defaultLostSightMemory = 4f;
 	private const float defaultSightRange = 10f;
 	private const float defaultVisionWidth = 45f;
+	private const float visibilityPersistenceDuration = 0.2f;
+	private const float debugLineDuration = 0.1f;
+	private const int maxVisionHits = 16;
+	private const string defaultVisionOriginChild = "HighLookPoint";
 	private static readonly Vector3 defaultVisionOriginOffset = new(0f, 1.6f, 0f);
+	private static readonly Color blockedLineColor = new(1f, 0f, 0f, 1f);
+	private static readonly Color visibleLineColor = new(0f, 1f, 0f, 1f);
+	private static readonly Color outOfRangeLineColor = new(0.4f, 0.4f, 0.4f, 1f);
+	private static readonly Color outOfFovLineColor = new(0f, 0.5f, 1f, 1f);
+	private static readonly Color closeRangeLineColor = new(1f, 0.8f, 0f, 1f);
 
 	/// <summary>
 	/// Optional custom delta time. When zero or negative, <see cref="Time.deltaTime"/> is used.
@@ -105,8 +116,10 @@ public partial class UpdateStalkerPerceptionAction : Action
 	public BlackboardVariable<bool> TreatRaycastMaskAsOccludersOnly = new(true);
 
 	private Transform cachedTransform;
+	private Transform cachedVisionOriginTransform;
 	private BehaviorGraphAgent graphAgent;
 	private BehaviorGraph cachedGraph;
+	private PathFindingAgent pathfindingAgent;
 	private BlackboardVariable<GameObject> playerVariable;
 	private BlackboardVariable<bool> playerVisibleVariable;
 	private BlackboardVariable<Vector3> lastKnownPositionVariable;
@@ -117,7 +130,9 @@ public partial class UpdateStalkerPerceptionAction : Action
 	private Transform cachedPlayerTransform;
 	private PlayerMovement cachedPlayerMovement;
 	private Collider cachedPlayerCollider;
+	private Collider[] cachedSelfColliders;
 	private readonly Vector3[] playerVisibilityPoints = new Vector3[3];
+	private readonly RaycastHit[] visionHits = new RaycastHit[maxVisionHits];
 	private float cachedVisionWidth = float.NaN;
 	private float cachedCosHalfFov;
 
@@ -134,6 +149,11 @@ public partial class UpdateStalkerPerceptionAction : Action
 		float _deltaTime = resolveDeltaTime();
 		bool _playerVisible = evaluatePlayerVisible();
 		float _timeSinceSeen = Mathf.Max(0f, timeSinceSeenVariable.Value);
+		bool _wasPlayerVisible = playerVisibleVariable != null && playerVisibleVariable.Value;
+		if (!_playerVisible && _wasPlayerVisible && _timeSinceSeen <= visibilityPersistenceDuration)
+		{
+			_playerVisible = true;
+		}
 
 		if (_playerVisible)
 		{
@@ -150,9 +170,9 @@ public partial class UpdateStalkerPerceptionAction : Action
 
 		playerVisibleVariable.Value = _playerVisible;
 		lostSightRecentlyVariable.Value = !_playerVisible && _timeSinceSeen <= _lostSightMemory;
-
-		if (SetPlayerVariableToNullWhenNotVisible != null && SetPlayerVariableToNullWhenNotVisible.Value) { playerVariable.Value = _playerVisible ? cachedPlayerObject : null; }
-		else { playerVariable.Value = cachedPlayerObject; }
+		if (pathfindingAgent != null) { pathfindingAgent.Target = _playerVisible ? cachedPlayerTransform : null; }
+		if (playerVariable != null) { playerVariable.Value = cachedPlayerObject; }
+		graphAgent.SetVariableValue(playerVariableName, cachedPlayerObject);
 
 		return Status.Success;
 	}
@@ -180,6 +200,9 @@ public partial class UpdateStalkerPerceptionAction : Action
 		if (!GameObject) { return false; }
 
 		cachedTransform ??= GameObject.transform;
+		cachedVisionOriginTransform ??= cachedTransform.Find(defaultVisionOriginChild);
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
+		cachedSelfColliders ??= GameObject.GetComponentsInChildren<Collider>();
 
 		if (!graphAgent)
 		{
@@ -246,7 +269,7 @@ public partial class UpdateStalkerPerceptionAction : Action
 		float _range = Mathf.Max(0.1f, SightRange != null ? SightRange.Value : defaultSightRange);
 		float _rangeSqr = _range * _range;
 		float _cosHalfFov = resolveCosHalfFov();
-		Vector3 _origin = cachedTransform.position + (VisionOriginOffset != null ? VisionOriginOffset.Value : defaultVisionOriginOffset);
+		Vector3 _origin = resolveVisionOriginPosition();
 		int _raycastMask = VisionRaycastMask != null ? VisionRaycastMask.Value : ~0;
 		QueryTriggerInteraction _queryTriggerInteraction = IgnoreTriggerColliders != null && IgnoreTriggerColliders.Value
 			? QueryTriggerInteraction.Ignore
@@ -257,28 +280,88 @@ public partial class UpdateStalkerPerceptionAction : Action
 
 		for (int _i = 0; _i < playerVisibilityPoints.Length; _i++)
 		{
-			Vector3 _directionToPoint = playerVisibilityPoints[_i] - _origin;
+			Vector3 _targetPoint = playerVisibilityPoints[_i];
+			Vector3 _directionToPoint = _targetPoint - _origin;
 			float _distanceSqr = _directionToPoint.sqrMagnitude;
-			if (_distanceSqr <= 0.0001f || _distanceSqr > _rangeSqr) { continue; }
+			if (_distanceSqr <= 0.0001f)
+			{
+				Debug.DrawLine(_origin, _targetPoint, visibleLineColor, debugLineDuration, false);
+				return true;
+			}
+
+			if (_distanceSqr > _rangeSqr)
+			{
+				Debug.DrawLine(_origin, _targetPoint, outOfRangeLineColor, debugLineDuration, false);
+				continue;
+			}
 
 			float _distance = Mathf.Sqrt(_distanceSqr);
 			Vector3 _directionNormalized = _directionToPoint / _distance;
-			bool _passesFov = Vector3.Dot(cachedTransform.forward, _directionNormalized) >= _cosHalfFov;
-			bool _passesCloseRange = _closeRangeDistanceSqr > 0f && _distanceSqr <= _closeRangeDistanceSqr;
-			if (!_passesFov && !_passesCloseRange) { continue; }
-
-			if (!Physics.Raycast(_origin, _directionNormalized, out RaycastHit _hit, _distance, _raycastMask, _queryTriggerInteraction))
+			Vector3 _forwardPlanar = new Vector3(cachedTransform.forward.x, 0f, cachedTransform.forward.z);
+			Vector3 _directionPlanar = new Vector3(_directionNormalized.x, 0f, _directionNormalized.z);
+			bool _passesFov = true;
+			if (_forwardPlanar.sqrMagnitude > 0.0001f && _directionPlanar.sqrMagnitude > 0.0001f)
 			{
-				// If the mask does not include player layers, no occluder-hit still means clear line to this point.
+				_forwardPlanar.Normalize();
+				_directionPlanar.Normalize();
+				_passesFov = Vector3.Dot(_forwardPlanar, _directionPlanar) >= _cosHalfFov;
+			}
+			bool _passesCloseRange = _closeRangeDistanceSqr > 0f && _distanceSqr <= _closeRangeDistanceSqr;
+			if (!_passesFov && !_passesCloseRange)
+			{
+				Debug.DrawLine(_origin, _targetPoint, outOfFovLineColor, debugLineDuration, false);
+				continue;
+			}
+
+			int _hitCount = Physics.RaycastNonAlloc(_origin, _directionNormalized, visionHits, _distance, _raycastMask, _queryTriggerInteraction);
+			if (_hitCount <= 0)
+			{
+				Color _clearColor = _passesCloseRange && !_passesFov ? closeRangeLineColor : visibleLineColor;
+				Debug.DrawLine(_origin, _targetPoint, _clearColor, debugLineDuration, false);
 				if (_maskAsOccludersOnly) { return true; }
 				continue;
 			}
 
-			if (_hit.transform != cachedPlayerTransform && !_hit.transform.IsChildOf(cachedPlayerTransform)) { continue; }
+			float _closestHitDistance = float.PositiveInfinity;
+			RaycastHit _closestHit = default;
+			bool _hasClosestHit = false;
+			for (int _hitIndex = 0; _hitIndex < _hitCount; _hitIndex++)
+			{
+				RaycastHit _hit = visionHits[_hitIndex];
+				if (isSelfCollider(_hit.collider)) { continue; }
+				if (_hit.distance >= _closestHitDistance) { continue; }
+
+				_closestHitDistance = _hit.distance;
+				_closestHit = _hit;
+				_hasClosestHit = true;
+			}
+
+			if (!_hasClosestHit)
+			{
+				Color _clearColor = _passesCloseRange && !_passesFov ? closeRangeLineColor : visibleLineColor;
+				Debug.DrawLine(_origin, _targetPoint, _clearColor, debugLineDuration, false);
+				if (_maskAsOccludersOnly) { return true; }
+				continue;
+			}
+
+			if (_closestHit.transform != cachedPlayerTransform && !_closestHit.transform.IsChildOf(cachedPlayerTransform))
+			{
+				Debug.DrawLine(_origin, _targetPoint, blockedLineColor, debugLineDuration, false);
+				continue;
+			}
+
+			Color _visibleColor = _passesCloseRange && !_passesFov ? closeRangeLineColor : visibleLineColor;
+			Debug.DrawLine(_origin, _targetPoint, _visibleColor, debugLineDuration, false);
 			return true;
 		}
 
 		return false;
+	}
+
+	private Vector3 resolveVisionOriginPosition()
+	{
+		if (cachedVisionOriginTransform != null) { return cachedVisionOriginTransform.position; }
+		return cachedTransform.position + (VisionOriginOffset != null ? VisionOriginOffset.Value : defaultVisionOriginOffset);
 	}
 
 	/// <summary>
@@ -316,6 +399,18 @@ public partial class UpdateStalkerPerceptionAction : Action
 		playerVisibilityPoints[0] = _playerPosition + Vector3.up * _headOffset;
 		playerVisibilityPoints[1] = _playerPosition + Vector3.up * _torsoOffset;
 		playerVisibilityPoints[2] = _playerPosition + Vector3.up * _legOffset;
+	}
+
+	private bool isSelfCollider(Collider _collider)
+	{
+		if (_collider == null || cachedSelfColliders == null) { return false; }
+
+		for (int i = 0; i < cachedSelfColliders.Length; i++)
+		{
+			if (ReferenceEquals(cachedSelfColliders[i], _collider)) { return true; }
+		}
+
+		return false;
 	}
 
 	/// <summary>

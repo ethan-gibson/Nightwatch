@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -44,6 +45,7 @@ public partial class ApplyStalkerStateEffectsAction : Action
 	private BehaviorGraphAgent graphAgent;
 	private BehaviorGraph cachedGraph;
 	private NavMeshAgent navMeshAgent;
+	private PathFindingAgent pathfindingAgent;
 	private AudioSource audioSource;
 	private BlackboardVariable<State> stateVariable;
 	private BlackboardVariable<float> chaseSpeedVariable;
@@ -66,6 +68,7 @@ public partial class ApplyStalkerStateEffectsAction : Action
 		float _minimumSpeed = MinimumAgentSpeed != null ? MinimumAgentSpeed.Value : 0.1f;
 		float _targetSpeed = Mathf.Max(_minimumSpeed, resolveSpeedForState(_state));
 		if (navMeshAgent && !Mathf.Approximately(navMeshAgent.speed, _targetSpeed)) { navMeshAgent.speed = _targetSpeed; }
+		if (pathfindingAgent && !Mathf.Approximately(pathfindingAgent.MoveSpeed, _targetSpeed)) { pathfindingAgent.MoveSpeed = _targetSpeed; }
 
 		if (!stateInitialized || _state != lastState)
 		{
@@ -100,6 +103,7 @@ public partial class ApplyStalkerStateEffectsAction : Action
 		if (!GameObject) { return false; }
 
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
 		audioSource ??= GameObject.GetComponent<AudioSource>();
 
 		if (!graphAgent)

@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -44,6 +45,8 @@ public partial class UpdateStalkerLocomotionAction : Action
 	public BlackboardVariable<float> WalkingAudioThreshold = new(0.1f);
 
 	private NavMeshAgent navMeshAgent;
+	private PathFindingAgent pathfindingAgent;
+	private StalkerRuntimeDriver runtimeDriver;
 	private Animator animator;
 	private StalkerAnimationEvents animationEvents;
 	private AudioSource walkingAudioSource;
@@ -65,9 +68,10 @@ public partial class UpdateStalkerLocomotionAction : Action
 	protected override Status OnStart()
 	{
 		if (!tryCacheReferences()) { return Status.Failure; }
+		if (runtimeDriver != null) { return Status.Success; }
 
 		bool _movementLocked = animationEvents != null && animationEvents.IsMovementLocked;
-		if (_movementLocked && navMeshAgent.enabled && navMeshAgent.isOnNavMesh)
+		if (_movementLocked && navMeshAgent && navMeshAgent.enabled && navMeshAgent.isOnNavMesh)
 		{
 			navMeshAgent.isStopped = true;
 			navMeshAgent.velocity = Vector3.zero;
@@ -139,6 +143,8 @@ public partial class UpdateStalkerLocomotionAction : Action
 		if (!GameObject) { return false; }
 
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
+		runtimeDriver ??= GameObject.GetComponent<StalkerRuntimeDriver>();
 		animator ??= GameObject.GetComponent<Animator>();
 		animationEvents ??= GameObject.GetComponent<StalkerAnimationEvents>();
 
@@ -148,7 +154,7 @@ public partial class UpdateStalkerLocomotionAction : Action
 			walkingAudioSource = _walkingAudioTransform ? _walkingAudioTransform.GetComponent<AudioSource>() : null;
 		}
 
-		return navMeshAgent;
+		return navMeshAgent || pathfindingAgent != null || animator || walkingAudioSource;
 	}
 
 	/// <summary>
@@ -159,16 +165,22 @@ public partial class UpdateStalkerLocomotionAction : Action
 	/// <returns>Current movement speed magnitude.</returns>
 	private float resolveMovementSpeedMagnitude(bool _movementLocked)
 	{
-		if (_movementLocked || navMeshAgent.isStopped) { return 0f; }
+		if (_movementLocked) { return 0f; }
 
-		float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
-		if (_velocitySqrMagnitude <= 0.0001f && navMeshAgent.hasPath && !navMeshAgent.pathPending)
+		float _velocitySqrMagnitude = 0f;
+		if (navMeshAgent && !navMeshAgent.isStopped)
 		{
-			_velocitySqrMagnitude = navMeshAgent.desiredVelocity.sqrMagnitude;
+			_velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
+			if (_velocitySqrMagnitude <= 0.0001f && navMeshAgent.hasPath && !navMeshAgent.pathPending)
+			{
+				_velocitySqrMagnitude = navMeshAgent.desiredVelocity.sqrMagnitude;
+			}
 		}
 
-		if (_velocitySqrMagnitude <= 0f) { return 0f; }
-		return Mathf.Sqrt(_velocitySqrMagnitude);
+		if (_velocitySqrMagnitude > 0f) { return Mathf.Sqrt(_velocitySqrMagnitude); }
+		if (pathfindingAgent != null && pathfindingAgent.CurrentSpeed > 0f) { return pathfindingAgent.CurrentSpeed; }
+		if (pathfindingAgent != null && pathfindingAgent.IsMoving && pathfindingAgent.HasPath) { return pathfindingAgent.MoveSpeed; }
+		return 0f;
 	}
 
 	/// <summary>

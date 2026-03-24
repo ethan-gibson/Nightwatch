@@ -57,18 +57,20 @@ namespace Game.Entities.Octree
 			}
 		}
 
-		private void drawNodes(List<OctreeNode> _nodes, Color _color, bool _onlyOccupied = false)
+		private void drawNodes(IReadOnlyList<OctreeNode> _nodes, Color _color, bool _onlyOccupied = false)
 		{
 			Gizmos.color = _color;
-			foreach (var _node in _nodes)
+			for (int _i = 0; _i < _nodes.Count; _i++)
 			{
+				OctreeNode _node = _nodes[_i];
 				switch (_onlyOccupied)
 				{
 					case true when !_node.IsOccupied:
 					case false when _node.IsOccupied:
 						continue;
 					default:
-						Gizmos.DrawWireCube(_node.Bounds.center, _node.Bounds.size);
+						Bounds _drawBounds = _node.IsOccupied ? _node.Bounds : _node.TraversalBounds;
+						Gizmos.DrawWireCube(_drawBounds.center, _drawBounds.size);
 						break;
 				}
 			}

@@ -1,4 +1,5 @@
 using Game.Entities;
+using Game.Entities.Octree;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -7,16 +8,25 @@ using UnityEngine.AI;
 /// Keeps animation callbacks decoupled from graph AI action logic.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(-1000)]
 public sealed class StalkerAnimationEvents : MonoBehaviour
 {
 	private static readonly int leavingHash = Animator.StringToHash("IsLeaving");
+	private static readonly int windowEnterStateHash = Animator.StringToHash("WindowEnter");
+	private static readonly int windowEnterFullPathHash = Animator.StringToHash("Base Layer.WindowEnter");
+	private const float entryStateResolveGraceDuration = 0.25f;
+	private const float entryLockFallbackDuration = 12f;
 
 	private PlayerMovement cachedPlayerMovement;
 	private NavMeshAgent cachedNavMeshAgent;
 	private Animator cachedAnimator;
+	private PathFindingAgent cachedPathFindingAgent;
+	private Transform cachedTransform;
 	private bool leaveAnimationCompleted;
 	private bool blockMovementUntilEntryAnimationCompletes;
 	private bool externalMovementLock;
+	private bool hasObservedEntryAnimation;
+	private float entryLockStartTime;
 
 	private void OnEnable()
 	{
@@ -24,14 +34,15 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 		leaveAnimationCompleted = false;
 		blockMovementUntilEntryAnimationCompletes = true;
 		externalMovementLock = false;
+		hasObservedEntryAnimation = false;
+		entryLockStartTime = Time.time;
 
-		// Keep agent stationary while spawn window-enter animation plays.
 		applyMovementLockIfNeeded();
 	}
 
 	private void LateUpdate()
 	{
-		// Re-apply the lock after graph actions so navigation writes cannot bypass spawn/leave gating.
+		updateEntryAnimationLock();
 		applyMovementLockIfNeeded();
 	}
 
@@ -46,6 +57,7 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 			cachedPlayerMovement = _player ? _player.GetComponent<PlayerMovement>() : null;
 		}
 
+		facePlayerIfAvailable();
 		cachedPlayerMovement?.InvokePlayerDeath();
 	}
 
@@ -95,16 +107,40 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 
 	private void cacheReferences()
 	{
+		cachedTransform ??= transform;
 		cachedNavMeshAgent ??= GetComponent<NavMeshAgent>();
 		cachedAnimator ??= GetComponent<Animator>();
+		cachedPathFindingAgent ??= GetComponent<PathFindingAgent>();
+	}
+
+	private void facePlayerIfAvailable()
+	{
+		if (cachedTransform == null || cachedPlayerMovement == null) { return; }
+
+		Transform _playerTransform = cachedPlayerMovement.transform;
+		if (_playerTransform == null) { return; }
+
+		Vector3 _lookDirection = _playerTransform.position - cachedTransform.position;
+		_lookDirection.y = 0f;
+		if (_lookDirection.sqrMagnitude <= 0.0001f) { return; }
+
+		cachedTransform.rotation = Quaternion.LookRotation(_lookDirection, Vector3.up);
 	}
 
 	private void applyMovementLockIfNeeded()
 	{
 		cacheReferences();
-		if (!cachedNavMeshAgent || !cachedNavMeshAgent.enabled || !cachedNavMeshAgent.isOnNavMesh) { return; }
+		updateMovementAuthority();
+		updateRootMotionState();
 
-		if (IsMovementLocked)
+		if (!cachedNavMeshAgent || !cachedPathFindingAgent || cachedPathFindingAgent.MovementAuthority != StalkerMovementAuthority.NavMeshLeave)
+		{
+			return;
+		}
+
+		if (!cachedNavMeshAgent.enabled || !cachedNavMeshAgent.isOnNavMesh) { return; }
+
+		if (externalMovementLock)
 		{
 			cachedNavMeshAgent.isStopped = true;
 			cachedNavMeshAgent.velocity = Vector3.zero;
@@ -113,5 +149,108 @@ public sealed class StalkerAnimationEvents : MonoBehaviour
 
 		cachedNavMeshAgent.isStopped = false;
 		if (cachedNavMeshAgent.speed <= 0f) { cachedNavMeshAgent.speed = 1f; }
+	}
+
+	private void updateMovementAuthority()
+	{
+		if (!cachedPathFindingAgent || cachedPathFindingAgent.MovementAuthority == StalkerMovementAuthority.NavMeshLeave) { return; }
+
+		if (IsMovementLocked)
+		{
+			cachedPathFindingAgent.SetMovementAuthority(StalkerMovementAuthority.AnimationLocked);
+			return;
+		}
+
+		if (cachedPathFindingAgent.MovementAuthority == StalkerMovementAuthority.AnimationLocked)
+		{
+			cachedPathFindingAgent.SetMovementAuthority(StalkerMovementAuthority.Octree);
+		}
+	}
+
+	private void updateRootMotionState()
+	{
+		if (!cachedAnimator) { return; }
+
+		bool _shouldUseRootMotion = shouldUseScriptedRootMotion();
+		if (cachedAnimator.applyRootMotion == _shouldUseRootMotion) { return; }
+
+		cachedAnimator.applyRootMotion = _shouldUseRootMotion;
+	}
+
+	private void updateEntryAnimationLock()
+	{
+		if (!blockMovementUntilEntryAnimationCompletes) { return; }
+
+		cacheReferences();
+		if (!cachedAnimator)
+		{
+			blockMovementUntilEntryAnimationCompletes = false;
+			return;
+		}
+
+		if (cachedAnimator.IsInTransition(0))
+		{
+			AnimatorStateInfo _nextState = cachedAnimator.GetNextAnimatorStateInfo(0);
+			if (isEntryAnimationState(_nextState))
+			{
+				hasObservedEntryAnimation = true;
+			}
+			else if (!hasObservedEntryAnimation && Time.time - entryLockStartTime >= entryStateResolveGraceDuration)
+			{
+				blockMovementUntilEntryAnimationCompletes = false;
+			}
+			else if (hasObservedEntryAnimation && Time.time - entryLockStartTime >= entryLockFallbackDuration)
+			{
+				blockMovementUntilEntryAnimationCompletes = false;
+			}
+			return;
+		}
+
+		AnimatorStateInfo _state = cachedAnimator.GetCurrentAnimatorStateInfo(0);
+		if (isEntryAnimationState(_state))
+		{
+			hasObservedEntryAnimation = true;
+			if (_state.normalizedTime >= 0.99f)
+			{
+				blockMovementUntilEntryAnimationCompletes = false;
+			}
+			return;
+		}
+
+		if (!hasObservedEntryAnimation)
+		{
+			if (Time.time - entryLockStartTime < entryStateResolveGraceDuration) { return; }
+			blockMovementUntilEntryAnimationCompletes = false;
+			return;
+		}
+
+		if (Time.time - entryLockStartTime >= entryLockFallbackDuration)
+		{
+			blockMovementUntilEntryAnimationCompletes = false;
+			return;
+		}
+
+		blockMovementUntilEntryAnimationCompletes = false;
+	}
+
+	private static bool isEntryAnimationState(AnimatorStateInfo _state)
+	{
+		return _state.shortNameHash == windowEnterStateHash || _state.fullPathHash == windowEnterFullPathHash;
+	}
+
+	private bool shouldUseScriptedRootMotion()
+	{
+		if (!cachedAnimator) { return false; }
+
+		if (cachedAnimator.IsInTransition(0))
+		{
+			AnimatorStateInfo _nextState = cachedAnimator.GetNextAnimatorStateInfo(0);
+			if (isEntryAnimationState(_nextState)) { return true; }
+		}
+
+		AnimatorStateInfo _state = cachedAnimator.GetCurrentAnimatorStateInfo(0);
+		if (isEntryAnimationState(_state)) { return true; }
+
+		return cachedAnimator.GetBool(leavingHash) && externalMovementLock;
 	}
 }

@@ -1,5 +1,6 @@
 using System;
 using Game.Entities;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -29,13 +30,13 @@ public partial class TryKillHiddenPlayerAction : Action
 	/// Maximum range for hidden-kill execution.
 	/// </summary>
 	[SerializeReference]
-	public BlackboardVariable<float> KillDistance = new(1.75f);
+	public BlackboardVariable<float> KillDistance = new(StalkerKillUtility.DefaultHiddenKillDistance);
 
 	/// <summary>
 	/// Duration to lock player controls after triggering a hidden kill.
 	/// </summary>
 	[SerializeReference]
-	public BlackboardVariable<float> LockDuration = new(4f);
+	public BlackboardVariable<float> LockDuration = new(StalkerKillUtility.DefaultKillLockDuration);
 
 	/// <summary>
 	/// Optional camera lock target used for closet-kill animations.
@@ -53,6 +54,8 @@ public partial class TryKillHiddenPlayerAction : Action
 	private Transform fallbackHighLookPoint;
 	private Transform fallbackLowLookPoint;
 	private NavMeshAgent navMeshAgent;
+	private PathFindingAgent pathfindingAgent;
+	private StalkerAnimationEvents animationEvents;
 	private Animator animator;
 	private Collider actorCollider;
 	private Rigidbody actorRigidbody;
@@ -69,13 +72,11 @@ public partial class TryKillHiddenPlayerAction : Action
 	protected override Status OnStart()
 	{
 		if (!tryCacheAgentReferences() || !tryCachePlayerReferences()) { return Status.Failure; }
-		if (animator && animator.GetBool(isKilling)) { return Status.Failure; }
+		if (animator && animator.GetBool(isKilling)) { return Status.Success; }
 		if (!cachedPlayerMovement.CheckIfHiding()) { return Status.Failure; }
 
-		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : 1.75f);
-		float _killDistanceSqr = _killDistance * _killDistance;
-		Vector3 _offset = cachedPlayerTransform.position - cachedTransform.position;
-		if (_offset.sqrMagnitude > _killDistanceSqr) { return Status.Failure; }
+		float _killDistance = Mathf.Max(0.1f, KillDistance != null ? KillDistance.Value : StalkerKillUtility.DefaultHiddenKillDistance);
+		if (!StalkerKillUtility.IsWithinHorizontalKillRange(GameObject, cachedPlayerObject, _killDistance)) { return Status.Failure; }
 
 		int _resolvedKillType = -1;
 		Transform _resolvedLookPoint = cachedTransform;
@@ -92,7 +93,7 @@ public partial class TryKillHiddenPlayerAction : Action
 
 		if (_resolvedKillType < 0) { return Status.Failure; }
 
-		float _lockDuration = Mathf.Max(0.1f, LockDuration != null ? LockDuration.Value : 4f);
+		float _lockDuration = Mathf.Max(0.1f, LockDuration != null ? LockDuration.Value : StalkerKillUtility.DefaultKillLockDuration);
 		triggerKill(_resolvedKillType, _resolvedLookPoint, _lockDuration);
 		return Status.Success;
 	}
@@ -121,6 +122,8 @@ public partial class TryKillHiddenPlayerAction : Action
 
 		cachedTransform ??= GameObject.transform;
 		navMeshAgent ??= GameObject.GetComponent<NavMeshAgent>();
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
+		animationEvents ??= GameObject.GetComponent<StalkerAnimationEvents>();
 		animator ??= GameObject.GetComponent<Animator>();
 		actorCollider ??= GameObject.GetComponent<Collider>();
 		actorRigidbody ??= GameObject.GetComponent<Rigidbody>();
@@ -160,7 +163,15 @@ public partial class TryKillHiddenPlayerAction : Action
 		if (actorCollider) { actorCollider.enabled = false; }
 		if (actorRigidbody) { actorRigidbody.isKinematic = true; }
 
-		if (navMeshAgent)
+		if (pathfindingAgent)
+		{
+			pathfindingAgent.Target = null;
+			pathfindingAgent.StopMoving();
+		}
+
+		animationEvents?.SetExternalMovementLock(true);
+
+		if (navMeshAgent && navMeshAgent.enabled && navMeshAgent.isOnNavMesh)
 		{
 			navMeshAgent.velocity = Vector3.zero;
 			navMeshAgent.isStopped = true;

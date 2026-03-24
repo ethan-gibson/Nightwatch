@@ -1,4 +1,5 @@
 using System;
+using Game.Entities.Octree;
 using Unity.Behavior;
 using Unity.Properties;
 using UnityEngine;
@@ -18,6 +19,9 @@ public partial class TickStalkerLifetimeAction : Action
 	private static readonly int windowEnterStateHash = Animator.StringToHash("WindowEnter");
 	private static readonly int windowEnterFullPathHash = Animator.StringToHash("Base Layer.WindowEnter");
 	private const string defaultExitTag = "StalkerEnterExit";
+	private const float minimumLeaveDuration = 20f;
+	private const float exitSampleDistance = 1.25f;
+	private const float navMeshAttachDistance = 4f;
 
 	/// <summary>
 	/// Optional custom delta time. When zero or negative, <see cref="Time.deltaTime"/> is used.
@@ -59,7 +63,7 @@ public partial class TickStalkerLifetimeAction : Action
 	/// Maximum time allowed in leave mode before force-despawn fallback.
 	/// </summary>
 	[SerializeReference]
-	public BlackboardVariable<float> MaximumLeaveDuration = new(8f);
+	public BlackboardVariable<float> MaximumLeaveDuration = new(20f);
 
 	/// <summary>
 	/// Maximum time allowed for the leave animation to complete before fallback despawn.
@@ -78,6 +82,7 @@ public partial class TickStalkerLifetimeAction : Action
 	private Animator animator;
 	private StalkerAnimationEvents animationEvents;
 	private Collider actorCollider;
+	private PathFindingAgent pathfindingAgent;
 	private GameObject[] exitPoints;
 	private string cachedExitTag;
 	private float activeTime;
@@ -136,6 +141,7 @@ public partial class TickStalkerLifetimeAction : Action
 		animator ??= GameObject.GetComponent<Animator>();
 		animationEvents ??= GameObject.GetComponent<StalkerAnimationEvents>();
 		actorCollider ??= GameObject.GetComponent<Collider>();
+		pathfindingAgent ??= GameObject.GetComponent<PathFindingAgent>();
 		return true;
 	}
 
@@ -205,6 +211,7 @@ public partial class TickStalkerLifetimeAction : Action
 	private void beginLeaving()
 	{
 		if (isLeaving) { return; }
+
 		isLeaving = true;
 		leaveTime = 0f;
 		nextLeaveRepathTime = 0f;
@@ -214,7 +221,17 @@ public partial class TickStalkerLifetimeAction : Action
 		animationEvents?.SetExternalMovementLock(false);
 
 		if (animator) { animator.SetBool(leavingHash, false); }
-		moveToClosestExit();
+
+		if (pathfindingAgent != null)
+		{
+			pathfindingAgent.Target = null;
+			pathfindingAgent.StopMoving();
+			pathfindingAgent.SetMovementAuthority(StalkerMovementAuthority.NavMeshLeave);
+		}
+
+		if (!prepareNavMeshForLeave()) { return; }
+
+		moveToBestReachableExit();
 	}
 
 	/// <summary>
@@ -234,79 +251,105 @@ public partial class TickStalkerLifetimeAction : Action
 		exitPoints = GameObject.FindGameObjectsWithTag(_exitTag);
 	}
 
-	/// <summary>
-	/// Sends the agent to the closest available exit point.
-	/// </summary>
-	private void moveToClosestExit()
+	private bool prepareNavMeshForLeave()
+	{
+		if (!navMeshAgent) { return false; }
+		if (!navMeshAgent.enabled) { navMeshAgent.enabled = true; }
+
+		Vector3 _currentPosition = cachedTransform.position;
+		if (!NavMesh.SamplePosition(_currentPosition, out NavMeshHit _navMeshHit, navMeshAttachDistance, NavMesh.AllAreas))
+		{
+			return false;
+		}
+
+		if (!navMeshAgent.Warp(_navMeshHit.position))
+		{
+			return false;
+		}
+
+		navMeshAgent.isStopped = false;
+		navMeshAgent.ResetPath();
+		navMeshAgent.velocity = Vector3.zero;
+		if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
+
+		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
+		if (navMeshAgent.stoppingDistance > _leaveArrivalDistance) { navMeshAgent.stoppingDistance = _leaveArrivalDistance; }
+		return navMeshAgent.isOnNavMesh;
+	}
+
+	private void moveToBestReachableExit()
 	{
 		refreshExitPointsIfNeeded();
-		if (exitPoints == null || exitPoints.Length == 0) { return; }
-		if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh) { return; }
+		if (exitPoints == null || exitPoints.Length == 0 || !navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh)
+		{
+			hasExitTargetPosition = false;
+			return;
+		}
 
-		Transform _closestExit = null;
-		float _closestDistanceSqr = float.PositiveInfinity;
-		Vector3 _position = cachedTransform.position;
+		Vector3 _bestExitPosition = Vector3.zero;
+		float _bestPathLength = float.PositiveInfinity;
+		bool _foundReachableExit = false;
 
 		for (int _i = 0; _i < exitPoints.Length; _i++)
 		{
 			GameObject _exitPoint = exitPoints[_i];
 			if (!_exitPoint) { continue; }
 
-			Vector3 _delta = _exitPoint.transform.position - _position;
-			float _distanceSqr = _delta.sqrMagnitude;
-			if (_distanceSqr >= _closestDistanceSqr) { continue; }
+			if (!NavMesh.SamplePosition(_exitPoint.transform.position, out NavMeshHit _exitHit, exitSampleDistance, NavMesh.AllAreas))
+			{
+				continue;
+			}
 
-			_closestDistanceSqr = _distanceSqr;
-			_closestExit = _exitPoint.transform;
+			NavMeshPath _candidatePath = new NavMeshPath();
+			if (!navMeshAgent.CalculatePath(_exitHit.position, _candidatePath) || _candidatePath.status != NavMeshPathStatus.PathComplete)
+			{
+				continue;
+			}
+
+			float _pathLength = getPathLength(_candidatePath);
+			if (_pathLength >= _bestPathLength) { continue; }
+
+			_bestPathLength = _pathLength;
+			_bestExitPosition = _exitHit.position;
+			_foundReachableExit = true;
 		}
 
-		if (!_closestExit) { return; }
+		if (!_foundReachableExit)
+		{
+			hasExitTargetPosition = false;
+			navMeshAgent.ResetPath();
+			navMeshAgent.isStopped = true;
+			return;
+		}
 
-		exitTargetPosition = _closestExit.position;
+		exitTargetPosition = _bestExitPosition;
 		hasExitTargetPosition = true;
 		navMeshAgent.isStopped = false;
-		if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
-		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
-		if (navMeshAgent.stoppingDistance > _leaveArrivalDistance) { navMeshAgent.stoppingDistance = _leaveArrivalDistance; }
-		if (NavMesh.SamplePosition(_closestExit.position, out NavMeshHit _exitHit, 1.25f, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_exitHit.position); }
-		else { navMeshAgent.SetDestination(_closestExit.position); }
+		navMeshAgent.SetDestination(exitTargetPosition);
 	}
 
-	/// <summary>
-	/// Updates leave progress and despawns the stalker once it reaches its exit.
-	/// </summary>
+	private static float getPathLength(NavMeshPath _path)
+	{
+		if (_path == null || _path.corners == null || _path.corners.Length < 2) { return 0f; }
+
+		float _pathLength = 0f;
+		for (int i = 1; i < _path.corners.Length; i++)
+		{
+			_pathLength += Vector3.Distance(_path.corners[i - 1], _path.corners[i]);
+		}
+
+		return _pathLength;
+	}
+
 	private void updateLeavingState()
 	{
 		if (!GameObject) { return; }
 
-		if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh)
-		{
-			UnityEngine.Object.Destroy(GameObject);
-			return;
-		}
-
-		float _maximumLeaveDuration = Mathf.Max(1f, MaximumLeaveDuration != null ? MaximumLeaveDuration.Value : 8f);
+		float _maximumLeaveDuration = Mathf.Max(minimumLeaveDuration, MaximumLeaveDuration != null ? MaximumLeaveDuration.Value : minimumLeaveDuration);
 		if (!leaveAnimationStarted && leaveTime >= _maximumLeaveDuration)
 		{
-			UnityEngine.Object.Destroy(GameObject);
+			destroyInPlace();
 			return;
-		}
-
-		float _leaveRepathInterval = Mathf.Max(0.1f, LeaveRepathInterval != null ? LeaveRepathInterval.Value : 0.75f);
-		if (Time.time >= nextLeaveRepathTime)
-		{
-			nextLeaveRepathTime = Time.time + _leaveRepathInterval;
-			if (!leaveAnimationStarted && (!navMeshAgent.hasPath || navMeshAgent.pathStatus != NavMeshPathStatus.PathComplete))
-			{
-				if (hasExitTargetPosition)
-				{
-					navMeshAgent.isStopped = false;
-					if (navMeshAgent.speed <= 0f) { navMeshAgent.speed = 1f; }
-					if (NavMesh.SamplePosition(exitTargetPosition, out NavMeshHit _exitHit, 1.25f, NavMesh.AllAreas)) { navMeshAgent.SetDestination(_exitHit.position); }
-					else { navMeshAgent.SetDestination(exitTargetPosition); }
-				}
-				else { moveToClosestExit(); }
-			}
 		}
 
 		if (leaveAnimationStarted)
@@ -320,24 +363,72 @@ public partial class TickStalkerLifetimeAction : Action
 				return;
 			}
 
-			if (animationEvents != null)
+			if (animationEvents != null && animationEvents.ConsumeLeaveAnimationCompleted())
 			{
-				if (animationEvents.ConsumeLeaveAnimationCompleted())
-				{
-					snapAndDestroy();
-					return;
-				}
+				snapAndDestroy();
+				return;
 			}
 
-			if (animator != null && isWindowEnterAnimationCompleted()) { snapAndDestroy(); }
+			if (animator != null && isWindowEnterAnimationCompleted())
+			{
+				snapAndDestroy();
+			}
+
 			return;
 		}
 
-		if (navMeshAgent.pathPending) { return; }
-		if (!navMeshAgent.hasPath) { return; }
-		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
-		if (navMeshAgent.remainingDistance > _leaveArrivalDistance) { return; }
+		bool _readyForLeaveNavigation = navMeshAgent && navMeshAgent.enabled && navMeshAgent.isOnNavMesh;
+		if (!_readyForLeaveNavigation && Time.time >= nextLeaveRepathTime)
+		{
+			nextLeaveRepathTime = Time.time + Mathf.Max(0.1f, LeaveRepathInterval != null ? LeaveRepathInterval.Value : 0.75f);
+			if (!prepareNavMeshForLeave()) { return; }
+			moveToBestReachableExit();
+		}
 
+		if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh) { return; }
+
+		float _leaveRepathInterval = Mathf.Max(0.1f, LeaveRepathInterval != null ? LeaveRepathInterval.Value : 0.75f);
+		if (Time.time >= nextLeaveRepathTime)
+		{
+			nextLeaveRepathTime = Time.time + _leaveRepathInterval;
+			if (!hasValidLeavePath())
+			{
+				moveToBestReachableExit();
+			}
+		}
+
+		if (!hasReachedExit()) { return; }
+
+		startLeaveAnimation();
+	}
+
+	private bool hasValidLeavePath()
+	{
+		return hasExitTargetPosition
+			&& navMeshAgent
+			&& navMeshAgent.enabled
+			&& navMeshAgent.isOnNavMesh
+			&& !navMeshAgent.pathPending
+			&& navMeshAgent.hasPath
+			&& navMeshAgent.pathStatus == NavMeshPathStatus.PathComplete;
+	}
+
+	private bool hasReachedExit()
+	{
+		if (!hasValidLeavePath()) { return false; }
+
+		float _leaveArrivalDistance = Mathf.Max(0.05f, LeaveArrivalDistance != null ? LeaveArrivalDistance.Value : 0.35f);
+		if (navMeshAgent.remainingDistance > _leaveArrivalDistance) { return false; }
+
+		Vector3 _planarPosition = cachedTransform.position;
+		_planarPosition.y = 0f;
+		Vector3 _planarExitPosition = exitTargetPosition;
+		_planarExitPosition.y = 0f;
+		return Vector3.Distance(_planarPosition, _planarExitPosition) <= _leaveArrivalDistance;
+	}
+
+	private void startLeaveAnimation()
+	{
 		animationEvents?.SetExternalMovementLock(true);
 		navMeshAgent.velocity = Vector3.zero;
 		navMeshAgent.isStopped = true;
@@ -361,10 +452,10 @@ public partial class TickStalkerLifetimeAction : Action
 	/// <param name="_forceIdle">When true, forces zero locomotion output.</param>
 	private void updateLeaveLocomotionOutputs(bool _forceIdle = false)
 	{
-		if (!animator || !navMeshAgent) { return; }
+		if (!animator || !navMeshAgent || !navMeshAgent.enabled) { return; }
 
 		float _movementSpeed = 0f;
-		if (!_forceIdle && !leaveAnimationStarted && !navMeshAgent.isStopped)
+		if (!_forceIdle && !leaveAnimationStarted && !navMeshAgent.isStopped && navMeshAgent.isOnNavMesh)
 		{
 			float _velocitySqrMagnitude = navMeshAgent.velocity.sqrMagnitude;
 			if (_velocitySqrMagnitude <= 0.0001f && navMeshAgent.hasPath && !navMeshAgent.pathPending)
@@ -399,8 +490,19 @@ public partial class TickStalkerLifetimeAction : Action
 	private void snapAndDestroy()
 	{
 		if (actorCollider) { actorCollider.enabled = false; }
-		float _leaveOffset = LeaveSnapHeightOffset != null ? LeaveSnapHeightOffset.Value : 1.3f;
-		cachedTransform.position = navMeshAgent.destination + new Vector3(0f, _leaveOffset, 0f);
+
+		if (hasExitTargetPosition)
+		{
+			float _leaveOffset = LeaveSnapHeightOffset != null ? LeaveSnapHeightOffset.Value : 1.3f;
+			cachedTransform.position = exitTargetPosition + new Vector3(0f, _leaveOffset, 0f);
+		}
+
+		UnityEngine.Object.Destroy(GameObject);
+	}
+
+	private void destroyInPlace()
+	{
+		if (actorCollider) { actorCollider.enabled = false; }
 		UnityEngine.Object.Destroy(GameObject);
 	}
 
