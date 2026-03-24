@@ -620,6 +620,8 @@ MonoBehaviour:
   pointResolveDistance: 4
   waypointDistance: 0.1
   constrainMovementToGround: 1
+  preferOctree: 1
+  allowNavMeshFallback: 1
 --- !u!114 &2156608346549144500
 MonoBehaviour:
   m_ObjectHideFlags: 0

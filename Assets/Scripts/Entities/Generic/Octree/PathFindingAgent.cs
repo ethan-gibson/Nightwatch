@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Behavior;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 
 namespace Game.Entities.Octree
 {
@@ -124,9 +125,11 @@ namespace Game.Entities.Octree
 		[SerializeField]
 		private bool constrainMovementToGround = true;
 		[SerializeField]
-		private bool preferNavMesh = true;
+		[FormerlySerializedAs("preferNavMesh")]
+		private bool preferOctree = true;
 		[SerializeField]
-		private bool allowOctreeFallback = true;
+		[FormerlySerializedAs("allowOctreeFallback")]
+		private bool allowNavMeshFallback = true;
 		[SerializeField]
 		private float navMeshAttachDistance = 2f;
 		[SerializeField]
@@ -250,12 +253,17 @@ namespace Game.Entities.Octree
 			hasRequestedTargetPosition = true;
 			nextTargetRepathTime = Time.time + targetRepathInterval;
 
-			if (preferNavMesh && tryRequestNavMeshPath(_targetPos))
+			if (preferOctree)
 			{
-				return true;
+				if (requestOctreePath(_targetPos)) { return true; }
+				if (allowNavMeshFallback && tryRequestNavMeshPath(_targetPos)) { return true; }
+			}
+			else
+			{
+				if (tryRequestNavMeshPath(_targetPos)) { return true; }
+				if (requestOctreePath(_targetPos)) { return true; }
 			}
 
-			if (allowOctreeFallback && requestOctreePath(_targetPos)) { return true; }
 			if (HasPath || IsMoving)
 			{
 				LastRequestSucceeded = true;
@@ -766,7 +774,7 @@ namespace Game.Entities.Octree
 		{
 			if (!navMeshAgent || !navMeshAgent.enabled || !navMeshAgent.isOnNavMesh)
 			{
-				if (trySwitchToOctreeFallback()) { return; }
+				if (tryRepathAfterNavMeshFailure()) { return; }
 
 				movementFailed();
 				return;
@@ -781,7 +789,7 @@ namespace Game.Entities.Octree
 
 			if (navMeshAgent.pathStatus == NavMeshPathStatus.PathInvalid || navMeshAgent.pathStatus == NavMeshPathStatus.PathPartial)
 			{
-				if (trySwitchToOctreeFallback()) { return; }
+				if (tryRepathAfterNavMeshFailure()) { return; }
 
 				movementFailed();
 				return;
@@ -933,15 +941,15 @@ namespace Game.Entities.Octree
 			}
 		}
 
-		private bool trySwitchToOctreeFallback()
+		private bool tryRepathAfterNavMeshFailure()
 		{
-			if (!allowOctreeFallback) { return false; }
+			if (!hasDestination) { return false; }
 
 			stopNavMeshMovement(_resetPath: true);
 			activeNavigationMode = NavigationMode.None;
 			hasNavMeshDestination = false;
 			updateNavMeshAuthorityState();
-			return requestOctreePath(Destination);
+			return RequestPath(Destination);
 		}
 
 		private void clearOctreePathState()
