@@ -4769,7 +4769,7 @@ MonoBehaviour:
         LocalValue:
           rid: 8976890663061684432
         LinkedVariable:
-          rid: -2
+          rid: 8405043426536718571
     - rid: 8976890663061684432
       type: {class: 'BlackboardVariable`1[[UnityEngine.Vector3, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
       data:

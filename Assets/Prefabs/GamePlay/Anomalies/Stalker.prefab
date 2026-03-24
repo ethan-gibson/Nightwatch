@@ -635,10 +635,12 @@ MonoBehaviour:
   ShowFreeNodes: 1
   ShowOccupiedNodes: 1
   ShowPath: 1
+  ShowNavMeshPath: 1
   ShowNeighbors: 1
   FreeNodeColor: {r: 0, g: 1, b: 0, a: 0.5}
   OccupiedNodeColor: {r: 1, g: 0, b: 0, a: 0.5}
   PathColor: {r: 0, g: 1, b: 1, a: 1}
+  NavMeshPathColor: {r: 1, g: 0.5, b: 0, a: 1}
   NeighborColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
 --- !u!1001 &3790947040463396481
 PrefabInstance:
