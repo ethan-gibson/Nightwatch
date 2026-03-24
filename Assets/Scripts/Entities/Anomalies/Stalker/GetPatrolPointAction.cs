@@ -98,7 +98,6 @@ public partial class GetPatrolPointAction : Action
 		pathfindingAgent = GameObject.GetComponent<PathFindingAgent>();
 		if (pathfindingAgent) { return true; }
 		return false;
-
 	}
 
 	/// <summary>
@@ -129,11 +128,11 @@ public partial class GetPatrolPointAction : Action
 			return true;
 		}
 
-		// if (NavMesh.SamplePosition(_origin, out NavMeshHit _fallbackHit, _radius, NavMesh.AllAreas))
-		// {
-		// 	_point = _fallbackHit.position;
-		// 	return true;
-		// }
+		if (NavMesh.SamplePosition(_origin, out NavMeshHit _fallbackHit, _radius, NavMesh.AllAreas))
+		{
+			_point = _fallbackHit.position;
+			return true;
+		}
 
 		_point = _origin;
 		return false;

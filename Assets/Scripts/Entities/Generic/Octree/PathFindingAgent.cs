@@ -17,6 +17,11 @@ namespace Game.Entities.Octree
 		private LayerMask groundLayerMask;
 		[SerializeField]
 		private float groundCheckDistance;
+		[SerializeField]
+		private Vector3 octreeOrigin = new Vector3(-6,0,6);
+		[SerializeField]
+		private Vector3 octreeSize = new Vector3(30,20,30);
+
 
 		private Octree octree;
 		private List<Vector3> path = new List<Vector3>();
@@ -33,7 +38,7 @@ namespace Game.Entities.Octree
 		private void Start()
 		{
 			obstacleLayerMask = LayerMask.GetMask("Wall", "Anomaly", "Obstacle");
-			Bounds _bounds = new Bounds(new Vector3(-6,0,6), new Vector3(30,20,30));
+			Bounds _bounds = new Bounds(octreeOrigin, octreeSize);
 			int _maxDepth = 7;
 			float _minLeafSize = 0.1f;
 			

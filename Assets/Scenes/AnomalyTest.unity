@@ -2437,7 +2437,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -11.5
+      value: -12.39
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.y
@@ -2445,7 +2445,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 13.6
+      value: 31.75
       objectReference: {fileID: 0}
     - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2524,8 +2524,20 @@ PrefabInstance:
       value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeSize.x
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: octreeSize.z
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: groundCheckDistance
       value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
+      propertyPath: obstacleLayerMask.m_Bits
+      value: 5120
       objectReference: {fileID: 0}
     - target: {fileID: 4021545544731803622, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
       propertyPath: m_Layer
