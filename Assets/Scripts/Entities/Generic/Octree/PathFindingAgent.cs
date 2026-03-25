@@ -148,6 +148,7 @@ namespace Game.Entities.Octree
 		private NavigationMode activeNavigationMode;
 		private Vector3 navMeshDestination;
 		private bool hasNavMeshDestination;
+		private OctreeDebugger octreeDebugger;
 
 		public bool IsMoving { get; private set; }
 		public bool IsMovementLocked => movementAuthority == StalkerMovementAuthority.AnimationLocked || isAnimationMovementLocked();
@@ -409,9 +410,6 @@ namespace Game.Entities.Octree
 			if (octree != null) { return; }
 
 			obstacleLayerMask |= LayerMask.GetMask("Wall", "Obstacle");
-			// "Anomaly" is intentionally excluded: including the agent's own layer in the
-			// obstacle mask causes isCapsuleClear to fail at the agent's position, which
-			// makes HasClearPath return false everywhere near the agent and breaks smoothPath.
 
 			if (groundLayerMask.value == 0)
 			{
@@ -423,10 +421,9 @@ namespace Game.Entities.Octree
 			float _resolvedMinLeafSize = Mathf.Max(0.1f, agentRadius * 0.5f);
 			octree = new Octree(_bounds, _maxDepth, _resolvedMinLeafSize, agentRadius, agentHeight, obstacleLayerMask, groundLayerMask, groundCheckDistance);
 
-			if (TryGetComponent(out OctreeDebugger _octreeDebugger))
-			{
-				_octreeDebugger.SetOctree(octree);
-			}
+			if (!TryGetComponent(out OctreeDebugger _octreeDebugger)) { return; }
+			octreeDebugger =  _octreeDebugger;
+			octreeDebugger.SetOctree(octree);
 		}
 
 		private void ensureRuntimeDriver()
@@ -693,6 +690,7 @@ namespace Game.Entities.Octree
 			if (octree == null) { return; }
 
 			octree.RebuildRegion(_doorBounds);
+			octreeDebugger.SetOctree(octree);
 			if (movementAuthority != StalkerMovementAuthority.Octree || activeNavigationMode != NavigationMode.Octree || isAnimationMovementLocked() || !hasDestination || (!IsMoving && !hasOctreePath())) { return; }
 
 			RequestPath(Destination);

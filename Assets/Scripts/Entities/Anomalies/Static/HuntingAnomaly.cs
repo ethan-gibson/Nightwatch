@@ -131,7 +131,6 @@ namespace Game.Entities
 
 		private void OnDestroy()
 		{
-			Logger.Log("destroyed");
 			if (cts == null) { return; }
 			cts?.Cancel();
 			cts?.Dispose();
