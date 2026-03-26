@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using SingularityGroup.HotReload.Editor.Localization;
 using SingularityGroup.HotReload.HarmonyLib;
 using UnityEditor;
 using UnityEditor.Compilation;
@@ -25,6 +26,24 @@ namespace SingularityGroup.HotReload.Editor {
         #endif
         
         const int desiredValue = 0;
+        
+        public static bool IsUserAutoRefreshDisabled() {
+            int autoRefreshSetting;
+            #if UNITY_2021_3_OR_NEWER
+            if (HotReloadPrefs.DefaultAutoRefreshMode != -1) {
+                autoRefreshSetting = HotReloadPrefs.DefaultAutoRefreshMode;
+            } else {
+                autoRefreshSetting = EditorPrefs.GetInt(autoRefreshModeKey);
+            }
+            #else
+            if (HotReloadPrefs.DefaultAutoRefresh != -1) {
+                autoRefreshSetting = HotReloadPrefs.DefaultAutoRefresh;
+            } else {
+                autoRefreshSetting = EditorPrefs.GetInt(autoRefreshKey);
+            }
+            #endif
+            return autoRefreshSetting == 0;
+        }
 
         public static void Apply() {
             if (HotReloadPrefs.AppliedAutoRefresh) {
@@ -231,7 +250,7 @@ namespace SingularityGroup.HotReload.Editor {
             DetourApi.DetourMethod(original, replacement, out result);
 
             if (!result.success) {
-                Debug.LogWarning($"Detouring {original.Name} method failed. {result.exception?.GetType()} {result.exception}");
+                Debug.LogWarning(string.Format(Translations.Errors.DebugDetouringMethodFailed, original.Name, result.exception?.GetType(), result.exception));
             } else {
                 reverters.Add(result.patchRecord);
             }

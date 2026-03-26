@@ -1,6 +1,6 @@
-﻿#if ENABLE_MONO && (DEVELOPMENT_BUILD || UNITY_EDITOR)
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using SingularityGroup.HotReload.DTO;
+using SingularityGroup.HotReload.Localization;
 using SingularityGroup.HotReload.Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -45,9 +46,18 @@ namespace SingularityGroup.HotReload {
     static class RequestHelper {
         internal const ushort defaultPort = 33242;
         internal const string defaultServerHost = "127.0.0.1";
-        const string ChangelogURL = "https://d2tc55zjhw51ly.cloudfront.net/releases/latest/changelog.json";
-        static readonly string defaultOrigin = Path.GetDirectoryName(UnityHelper.DataPath);
+        const string ChangelogURL = PackageConst.DefaultLocale == Locale.SimplifiedChinese ? 
+            "https://d2tc55zjhw51ly.cloudfront.net/releases/latest/changelog-zh.json" :
+            "https://d2tc55zjhw51ly.cloudfront.net/releases/latest/changelog.json";
+        static readonly string defaultOrigin = GetProjectRoot();
         public static string origin { get; private set; } = defaultOrigin;
+
+        static string GetProjectRoot() {
+            if (MultiplayerPlaymodeHelper.IsClone) {
+                return Path.GetFullPath(MultiplayerPlaymodeHelper.PathToMainProject("."));
+            }
+            return Path.GetFullPath(".");
+        }
         
         static PatchServerInfo serverInfo = new PatchServerInfo(defaultServerHost, null, null);
         public static PatchServerInfo ServerInfo => serverInfo;
@@ -67,8 +77,7 @@ namespace SingularityGroup.HotReload {
         
         static HttpClient CreateHttpClientWithOrigin() {
             var httpClient = HttpClientUtils.CreateHttpClient();
-            httpClient.DefaultRequestHeaders.Add("origin", Path.GetDirectoryName(UnityHelper.DataPath));
-
+            httpClient.DefaultRequestHeaders.Add("origin", origin);
             return httpClient;
         }
         
@@ -79,13 +88,11 @@ namespace SingularityGroup.HotReload {
             return $"http://{server.hostName}:{server.port.ToString()}";
         }
         
-        public static void SetServerPort(int port) {
-            serverInfo = new PatchServerInfo(serverInfo.hostName, port, serverInfo.commitHash, serverInfo.rootPath);
-            cachedUrl = null;
-            Log.Debug($"SetServerInfo to {CreateUrl(serverInfo)}");
+        public static PatchServerInfo SetServerPort(int port) {
+            return SetServerInfo(new PatchServerInfo(serverInfo.hostName, port, serverInfo.commitHash, serverInfo.rootPath, false, serverInfo.customRequestOrigin));
         }
 
-        public static void SetServerInfo(PatchServerInfo info) {
+        public static PatchServerInfo SetServerInfo(PatchServerInfo info) {
             if (info != null) Log.Debug($"SetServerInfo to {CreateUrl(info)}");
             serverInfo = info;
             cachedUrl = null;
@@ -93,6 +100,7 @@ namespace SingularityGroup.HotReload {
             if (info?.customRequestOrigin != null) {
                 SetOrigin(info.customRequestOrigin);
             }
+            return info;
         }
 
         // This function is not thread safe but is currently called before the first request is sent so no issue.
@@ -140,8 +148,12 @@ namespace SingularityGroup.HotReload {
                 return;
             }
             pollPending = true;
-            var searchPaths = assemblySearchPaths ?? CodePatcher.I.GetAssemblySearchPaths();
-            var body = SerializeRequestBody(new MethodPatchRequest(lastPatchId, searchPaths, TimeSpan.FromSeconds(20), Path.GetDirectoryName(Application.dataPath)));
+            string[] searchPaths = null;
+            // This is here so that it doesn't override searchPaths registered by main project
+            if (!MultiplayerPlaymodeHelper.IsClone) {
+                searchPaths = assemblySearchPaths ?? CodePatcher.I.GetAssemblySearchPaths();
+            }
+            var body = SerializeRequestBody(new MethodPatchRequest(lastPatchId, searchPaths, TimeSpan.FromSeconds(20), origin));
             
             await ThreadUtility.SwitchToThreadPool();
             
@@ -161,7 +173,7 @@ namespace SingularityGroup.HotReload {
                     //Server shut down
                     await Task.Delay(5000);
                 } else {
-                    Log.Info("PollMethodPatches failed with code {0} {1} {2}", (int)result.statusCode, result.responseText, result.exception);
+                    Log.Info(Localization.Translations.Logging.PollMethodPatchesFailed, (int)result.statusCode, result.responseText, result.exception);
                 }
             } finally {
                 pollPending = false;
@@ -189,7 +201,7 @@ namespace SingularityGroup.HotReload {
                     //Server shut down
                     await Task.Delay(5000);
                 } else {
-                    Log.Info("PollPatchStatus failed with code {0} {1} {2}", (int)result.statusCode, result.responseText, result.exception);
+                    Log.Info(Localization.Translations.Logging.PollPatchStatusFailed, (int)result.statusCode, result.responseText, result.exception);
                 }
             } finally {
                 pollPatchStatusPending = false;
@@ -229,7 +241,7 @@ namespace SingularityGroup.HotReload {
                     //Server shut down
                     await Task.Delay(5000);
                 } else {
-                    Log.Info("PollAssetChanges failed with code {0} {1} {2}", (int)result.statusCode, result.responseText, result.exception);
+                    Log.Info(Localization.Translations.Logging.PollAssetChangesFailed, (int)result.statusCode, result.responseText, result.exception);
                 }
             } finally {
                 assetPollPending = false;
@@ -242,6 +254,19 @@ namespace SingularityGroup.HotReload {
             if (resp.statusCode == HttpStatusCode.OK) {
                 try {
                     return JsonConvert.DeserializeObject<FlushErrorsResponse>(resp.responseText);
+                } catch {
+                    return null;
+                }
+            }
+            return null;
+        }
+        
+        public static async Task<EditorsWithoutHRResponse> RequestEditorsWithoutHRRunning(int timeoutSeconds = 30) {
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            var resp = await PostJson(CreateUrl(serverInfo) + "/editorsWithoutHR", "", timeoutSeconds, cts.Token);
+            if (resp.statusCode == HttpStatusCode.OK) {
+                try {
+                    return JsonConvert.DeserializeObject<EditorsWithoutHRResponse>(resp.responseText);
                 } catch {
                     return null;
                 }
@@ -280,10 +305,10 @@ namespace SingularityGroup.HotReload {
                 try {
                     return JsonConvert.DeserializeObject<LoginStatusResponse>(resp.responseText);
                 } catch (Exception ex) {
-                    return LoginStatusResponse.FromRequestError($"Deserializing response failed with {ex.GetType().Name}: {ex.Message}");
+                    return LoginStatusResponse.FromRequestError(string.Format(Localization.Translations.Logging.DeserializingResponseFailed, ex.GetType().Name, ex.Message));
                 }
             } else {
-                return LoginStatusResponse.FromRequestError(resp.responseText ?? "Request timeout");
+                return LoginStatusResponse.FromRequestError(resp.responseText ?? Localization.Translations.Logging.RequestTimeout);
             }
         }
 
@@ -305,6 +330,9 @@ namespace SingularityGroup.HotReload {
         }
         
         internal static async Task RequestEditorEventWithRetry(Stat stat, EditorExtraData extraData = null) {
+            if (MultiplayerPlaymodeHelper.IsClone) {
+                return;
+            }
             int attempt = 0;
             do {
                 var resp = await RequestHelper.RequestEditorEvent(stat, extraData);
@@ -324,13 +352,23 @@ namespace SingularityGroup.HotReload {
             await ThreadUtility.SwitchToThreadPool();
             await KillServerInternal().ConfigureAwait(false);
         }
+        
+        internal static async Task RegisterClone() {
+            await ThreadUtility.SwitchToThreadPool();
+            try {
+                var body = SerializeRequestBody(new RegisterCloneRequest(Process.GetCurrentProcess().Id));
+                using(await client.PostAsync(CreateUrl(serverInfo) + "/registerClone", new StringContent(body)).ConfigureAwait(false)) { }
+            } catch {
+                //ignored
+            } 
+        }
 
         internal static async Task KillServerInternal() {
             try {
                 using(await client.PostAsync(CreateUrl(serverInfo) + "/kill", new StringContent(origin)).ConfigureAwait(false)) { }
             } catch {
                 //ignored
-            } 
+            }
         }
 
         public static async Task<bool> PingServer(Uri uri) {
@@ -345,14 +383,41 @@ namespace SingularityGroup.HotReload {
             }
         }
         
+        public static bool IsReleaseMode() {
+#           if (UNITY_EDITOR && UNITY_2022_1_OR_NEWER)
+                return UnityEditor.Compilation.CompilationPipeline.codeOptimization == UnityEditor.Compilation.CodeOptimization.Release;
+#           elif (UNITY_EDITOR)
+                return false;
+#           elif (DEBUG)
+                return false;
+#           else
+                return true;
+#endif
+        }
+        
         public static Task RequestClearPatches() {
-            var body = SerializeRequestBody(new CompileRequest(serverInfo.rootPath));
+            var body = SerializeRequestBody(new CompileRequest(serverInfo.rootPath, IsReleaseMode()));
             return PostJson(url + "/clearpatches", body, 10);
         }
         
-        public static Task RequestCompile() {
-            var body = SerializeRequestBody(new CompileRequest(serverInfo.rootPath));
-            return PostJson(url + "/compile", body, 10);
+        public static async Task RequestCompile(Action<string> onResponseReceived) {
+            var body = SerializeRequestBody(new CompileRequest(serverInfo.rootPath, IsReleaseMode()));
+            var result = await PostJson(url + "/compile", body, 10);
+            if (result.statusCode == HttpStatusCode.OK && !string.IsNullOrEmpty(result.responseText)) {
+                var responses = JsonConvert.DeserializeObject<List<string>>(result.responseText);
+                if (responses == null) {
+                    return;
+                }
+                await ThreadUtility.SwitchToMainThread();
+                foreach (var response in responses) {
+                    // Avoid importing assets twice
+                    if (responses.Contains(response + ".meta")) {
+                        Log.Debug($"Ignoring asset change inside Unity: {response}");
+                        continue;
+                    }
+                    onResponseReceived(response);
+                }
+            }
         }
         
         internal static async Task<List<ChangelogVersion>> FetchChangelog(int timeoutSeconds = 20) {
@@ -415,4 +480,3 @@ namespace SingularityGroup.HotReload {
         }
     }
 }
-#endif

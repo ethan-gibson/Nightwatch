@@ -9,6 +9,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 254358
   packageName: Hot Reload | Edit Code Without Compiling
-  packageVersion: 1.12.14
+  packageVersion: 1.13.16
   assetPath: Packages/com.singularitygroup.hotreload/Server/linux-x64/hotreload-start-script.sh
-  uploadId: 719400
+  uploadId: 867026

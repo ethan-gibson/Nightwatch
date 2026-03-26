@@ -2,14 +2,18 @@ using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using Logger = Arti.Utilities.Logger;
 
 namespace Game.Entities
 {
 	public class ScalingAnomaly : AnomalyMain
 	{
-		[SerializeField] private Vector3 normalScale;
-		[SerializeField] private Vector3 shiftedScale;
-		[SerializeField] private float growTime = 3f;
+		[SerializeField]
+		private Vector3 normalScale;
+		[SerializeField]
+		private Vector3 shiftedScale;
+		[SerializeField]
+		private float growTime = 3f;
 
 		private void Awake()
 		{
@@ -20,7 +24,7 @@ namespace Game.Entities
 		{
 			base.anomalyChange();
 			changed = true;
-			Debug.Log(changed);
+			Logger.Log(changed);
 			scaling().Forget();
 		}
 
@@ -53,13 +57,11 @@ namespace Game.Entities
 
 		private void OnDestroy()
 		{
-			Debug.Log("destroyed");
 			if (cts == null) { return; }
 			cts?.Cancel();
 			cts?.Dispose();
 			cts = null;
 		}
-
 
 		#region Editor
 

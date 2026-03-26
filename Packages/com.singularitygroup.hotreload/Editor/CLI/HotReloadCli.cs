@@ -2,11 +2,17 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+#if UNITY_EDITOR_WIN
 using System.Net.NetworkInformation;
+#else
 using System.Net.Sockets;
+#endif
 using System.Threading.Tasks;
+using SingularityGroup.HotReload.Editor.Localization;
+using SingularityGroup.HotReload.Localization;
 using SingularityGroup.HotReload.Newtonsoft.Json;
 using UnityEditor;
+using Translations = SingularityGroup.HotReload.Editor.Localization.Translations;
 
 namespace SingularityGroup.HotReload.Editor.Cli {
     [InitializeOnLoad]
@@ -15,6 +21,10 @@ namespace SingularityGroup.HotReload.Editor.Cli {
         
         //InitializeOnLoad ensures controller gets initialized on unity thread
         static HotReloadCli() {
+            if (MultiplayerPlaymodeHelper.IsClone) {
+                controller = new FallbackCliController();
+                return;
+            }
             controller =
     #if UNITY_EDITOR_OSX
                 new OsxCliController();
@@ -34,17 +44,47 @@ namespace SingularityGroup.HotReload.Editor.Cli {
         /// </summary>
         public static Task StartAsync() {
             return StartAsync(
+                isReleaseMode: RequestHelper.IsReleaseMode(),
                 exposeServerToNetwork: HotReloadPrefs.ExposeServerToLocalNetwork, 
                 allAssetChanges: HotReloadPrefs.AllAssetChanges, 
-                createNoWindow: HotReloadPrefs.DisableConsoleWindow
+                createNoWindow: HotReloadPrefs.DisableConsoleWindow,
+#if UNITY_EDITOR_WIN
+                useWatchman: HotReloadPrefs.UseWatchman,
+#endif
+                detailedErrorReporting: !HotReloadPrefs.DisableDetailedErrorReporting
             );
         }
         
-        internal static async Task StartAsync(bool exposeServerToNetwork, bool allAssetChanges, bool createNoWindow, LoginData loginData = null) {
+        internal static async Task StartAsync(
+            bool exposeServerToNetwork, 
+            bool allAssetChanges, 
+            bool createNoWindow, 
+            bool isReleaseMode, 
+            bool detailedErrorReporting, 
+#if UNITY_EDITOR_WIN 
+            bool useWatchman = true,
+#endif
+            LoginData loginData = null
+) {
+            if (controller.PlatformName == "") {
+                return;
+            }
             var port = await Prepare().ConfigureAwait(false);
             await ThreadUtility.SwitchToThreadPool();
             StartArgs args;
-            if (TryGetStartArgs(UnityHelper.DataPath, exposeServerToNetwork, allAssetChanges, createNoWindow, loginData, port, out args)) {
+            if (TryGetStartArgs(
+                    UnityHelper.DataPath, 
+                    exposeServerToNetwork, 
+                    allAssetChanges, 
+                    createNoWindow, 
+                    isReleaseMode, 
+                    detailedErrorReporting, 
+                    loginData, 
+                    port, 
+#if UNITY_EDITOR_WIN 
+                    useWatchman,
+#endif
+                    out args)) {
                 await controller.Start(args);
             }
         }
@@ -65,13 +105,25 @@ namespace SingularityGroup.HotReload.Editor.Cli {
 #pragma warning restore CS0649
         }
         
-        static bool TryGetStartArgs(string dataPath, bool exposeServerToNetwork, bool allAssetChanges, bool createNoWindow, LoginData loginData, int port, out StartArgs args) {
+        static bool TryGetStartArgs(
+            string dataPath, 
+            bool exposeServerToNetwork, 
+            bool allAssetChanges, 
+            bool createNoWindow, 
+            bool isReleaseMode, 
+            bool detailedErrorReporting, 
+            LoginData loginData, 
+            int port, 
+#if UNITY_EDITOR_WIN 
+            bool useWatchman,
+#endif
+            out StartArgs args
+        ) {
             string serverDir;
             if(!CliUtils.TryFindServerDir(out serverDir)) {
-                Log.Warning($"Failed to start the Hot Reload Server. " +
-                                 $"Unable to locate the 'Server' directory. " +
-                                 $"Make sure the 'Server' directory is " +
-                                 $"somewhere in the Assets folder inside a 'HotReload' folder or in the HotReload package");
+                Log.Warning(string.Format(Translations.Errors.WarningFailedToStartServer, 
+                                 Translations.Utility.UnableToLocateServer +
+                                 Translations.Utility.UnableToLocateServerDetail));
                 args = null;
                 return false;
             }
@@ -95,11 +147,11 @@ namespace SingularityGroup.HotReload.Editor.Cli {
                 var info = new DirectoryInfo(Path.GetFullPath("."));
                 slnPath = Path.Combine(Path.GetFullPath("."), info.Name + ".sln");
                 if (!File.Exists(slnPath)) {
-                    Log.Warning($"Failed to start the Hot Reload Server. Cannot find solution file. Please disable \"useBuiltInProjectGeneration\" in settings to enable custom project generation.");
+                    Log.Warning(string.Format(Translations.Errors.WarningFailedToStartServer, Translations.Utility.CannotFindSolutionFile));
                     args = null;
                     return false;
                 }
-                Log.Info("Using default project generation. If you encounter any problem with Unity's default project generation consider disabling it to use custom project generation.");
+                Log.Info(Translations.Errors.InfoDefaultProjectGeneration);
                 try {
                     Directory.Delete(ProjectGeneration.ProjectGeneration.tempDir, true);
                 } catch(Exception ex) {
@@ -110,14 +162,17 @@ namespace SingularityGroup.HotReload.Editor.Cli {
             }
 
             if (!File.Exists(slnPath)) {
-                Log.Warning($"No .sln file found. Open any c# file to generate it so Hot Reload can work properly");
+                Log.Warning(Translations.Errors.WarningNoSlnFileFound);
             }
             
             var searchAssemblies = string.Join(";", CodePatcher.I.GetAssemblySearchPaths());
-            var cliArguments = $@"-u ""{unityProjDir}"" -s ""{slnPath}"" -t ""{cliTempDir}"" -a ""{searchAssemblies}"" -ver ""{PackageConst.Version}"" -proc ""{Process.GetCurrentProcess().Id}"" -assets ""{allAssetChanges}"" -p ""{port}""";
+            var cliArguments = $@"-u ""{unityProjDir}"" -s ""{slnPath}"" -t ""{cliTempDir}"" -a ""{searchAssemblies}"" -ver ""{PackageConst.Version}"" -proc ""{Process.GetCurrentProcess().Id}"" -assets ""{allAssetChanges}"" -p ""{port}"" -r {isReleaseMode} -detailed-error-reporting {detailedErrorReporting}";
             if (loginData != null) {
                 cliArguments += $@" -email ""{loginData.email}"" -pass ""{loginData.password}""";
             }
+            #if UNITY_EDITOR_WIN
+            cliArguments += $@" -w ""{useWatchman}""";
+            #endif
             if (exposeServerToNetwork) {
                 // server will listen on local network interface (default is localhost only)
                 cliArguments += " -e true";
@@ -188,7 +243,8 @@ namespace SingularityGroup.HotReload.Editor.Cli {
             
             var port = DiscoverFreePort();
             HotReloadState.ServerPort = port;
-            RequestHelper.SetServerPort(port);
+            var serverInfo = RequestHelper.SetServerPort(port);
+            await Task.Run(() => File.WriteAllText(Path.Combine(PackageConst.LibraryCachePath, PackageConst.ServerInfoFileName), JsonConvert.SerializeObject(serverInfo)));
             return port;
         }
 
@@ -202,10 +258,10 @@ namespace SingularityGroup.HotReload.Editor.Cli {
                     PrepareBuildInfo(buildInfo);
                 } catch (Exception e) {
                     if (!didLogWarning) {
-                        Log.Warning($"Preparing build info failed! On-device functionality might not work. Exception: {e}");
+                        Log.Warning(string.Format(Translations.Errors.WarningPreparingBuildInfoFailed, e));
                         didLogWarning = true;
                     } else { 
-                        Log.Debug($"Preparing build info failed! On-device functionality might not work. Exception: {e}");
+                        Log.Debug(string.Format(Translations.Utility.PreparingBuildInfoFailed, e));
                     }
                 }
             });

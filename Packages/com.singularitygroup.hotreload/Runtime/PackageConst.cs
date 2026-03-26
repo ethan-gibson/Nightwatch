@@ -1,4 +1,4 @@
-#if ENABLE_MONO && (DEVELOPMENT_BUILD || UNITY_EDITOR)
+using System.IO;
 using UnityEngine;
 
 namespace SingularityGroup.HotReload {
@@ -8,13 +8,18 @@ namespace SingularityGroup.HotReload {
         public static bool IsAssetStoreBuild => true;
 
         
-        public const string Version = "1.12.14";
+        public const string Version = "1.13.16";
         // Never higher than Version
         // Used for the download
-        public const string ServerVersion = "1.12.12";
+        public const string ServerVersion = "1.13.16";
         public const string PackageName = "com.singularitygroup.hotreload";
-        public const string LibraryCachePath = "Library/" + PackageName;
+        public const string DefaultLocale = Localization.Locale.English;
+        // avoids unreachable code warnings from using const
+        public static string DefaultLocaleField = DefaultLocale;
+        public static readonly string LibraryCachePath = MultiplayerPlaymodeHelper.PathToMainProject("Library/" + PackageName);
         public const string ConfigFileName = "hot-reload-config.json";
+        public static readonly string ConfigFilePath = Path.Combine(MultiplayerPlaymodeHelper.PathToMainProject(ConfigFileName));
+        public const string ServerInfoFileName = "serverinfo.json";
+        public static readonly string ServerInfoFilePath = Path.Combine(LibraryCachePath, ServerInfoFileName);
     }
 }
-#endif

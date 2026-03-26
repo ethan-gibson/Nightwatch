@@ -9,7 +9,8 @@ namespace Game.Entities
 	{
 		protected bool changed;
 
-		[Tooltip("How much does this anomaly count for")] [SerializeField]
+		[Tooltip("How much does this anomaly count for")]
+		[SerializeField]
 		private int anomalyWeight;
 
 		public delegate void AnomalySpawned(int _weight);

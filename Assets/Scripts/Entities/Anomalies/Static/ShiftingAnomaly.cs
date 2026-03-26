@@ -3,16 +3,22 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.Core;
 using UnityEngine;
+using Logger = Arti.Utilities.Logger;
 
 namespace Game.Entities
 {
 	public class ShiftingAnomaly : AnomalyMain
 	{
-		[SerializeField] private float shiftTime = 3f;
-		[SerializeField] private Vector3 normalLocation;
-		[SerializeField] private Quaternion normalRotation;
-		[SerializeField] private Vector3 shiftedLocation;
-		[SerializeField] private Quaternion shiftedRotation;
+		[SerializeField]
+		private float shiftTime = 3f;
+		[SerializeField]
+		private Vector3 normalLocation;
+		[SerializeField]
+		private Quaternion normalRotation;
+		[SerializeField]
+		private Vector3 shiftedLocation;
+		[SerializeField]
+		private Quaternion shiftedRotation;
 
 		private void Awake()
 		{
@@ -64,13 +70,11 @@ namespace Game.Entities
 
 		private void OnDestroy()
 		{
-			Debug.Log("destroyed");
 			if (cts == null) { return; }
 			cts?.Cancel();
 			cts?.Dispose();
 			cts = null;
 		}
-
 
 		#region Editor
 

@@ -49,5 +49,13 @@ namespace Game.Entities
 			currentDir = Vector2.SmoothDamp(currentDir, new(movementDirection.x, movementDirection.z), ref currentDirVelocity, moveSmoothTime);
 			velocity = (transform.forward * currentDir.y + transform.right * currentDir.x) * speed + Vector3.up * velocity.y;
 		}
+
+		protected void ClearMovementState()
+		{
+			movementDirection = Vector3.zero;
+			currentDir = Vector2.zero;
+			currentDirVelocity = Vector2.zero;
+			velocity = Vector3.zero;
+		}
 	}
 }

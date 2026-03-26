@@ -11,8 +11,10 @@ namespace Game.Entities
 	{
 		private const float range = 100;
 		private IInteractable currentTarget;
-		[SerializeField] private LayerMask mask;
-		[SerializeField] private GameObject RaycastCamera;
+		[SerializeField]
+		private LayerMask mask;
+		[SerializeField]
+		private GameObject RaycastCamera;
 		private PlayerInput playerInput;
 
 		private void Awake()
@@ -55,7 +57,6 @@ namespace Game.Entities
 				clearTarget();
 				return;
 			}
-			//Debug.Log("We Hit" + whatIHit.collider.name + " " + whatIHit.point);
 			if (!_hit.collider.TryGetComponent<IInteractable>(out var _interactable))
 			{
 				clearTarget();

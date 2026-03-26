@@ -42,7 +42,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 302c8c9df0d6247ec988a3121ca0f4f0, type: 3}
+  m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 302c8c9df0d6247ec988a3121ca0f4f0, type: 3}
   m_PlayOnAwake: 0
   m_Volume: 1
@@ -171,7 +171,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 8300000, guid: 96a5724a735ad4c1285f1e4e11d0f6f2, type: 3}
+  m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 96a5724a735ad4c1285f1e4e11d0f6f2, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 1
@@ -299,14 +299,15 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1718757989369148551}
-  - component: {fileID: 1993294855079888354}
+  - component: {fileID: -4417825927991010821}
   - component: {fileID: 6679779015355634370}
   - component: {fileID: 5460486083137740326}
   - component: {fileID: 2317720873077654431}
   - component: {fileID: 5162260404718283776}
   - component: {fileID: 5512799092692653605}
   - component: {fileID: 8145493782162998653}
-  - component: {fileID: -997082001225621377}
+  - component: {fileID: 3683058813620863463}
+  - component: {fileID: 2156608346549144500}
   m_Layer: 0
   m_Name: Stalker
   m_TagString: Anomaly
@@ -332,14 +333,62 @@ Transform:
   - {fileID: 1595368269658249513}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &1993294855079888354
-MeshFilter:
+--- !u!114 &-4417825927991010821
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7926580517754755083}
-  m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0038c16c34866b4f9e25c9c0dc0f7e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Behavior::Unity.Behavior.BehaviorGraphAgent
+  m_Graph: {fileID: -2901557858111036668, guid: 430b84faedfdd41e0a0c20403d370be4, type: 2}
+  m_BlackboardVariableOverridesList:
+  - rid: 8405043430226657280
+  - rid: 8405043430226657281
+  - rid: 8405043430226657282
+  - rid: 8405043430226657283
+  m_OriginalGraph: {fileID: 0}
+  m_IsInitialised: 0
+  m_IsStarted: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: 8405043430226657280
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 1
+          m_Value1: 0
+        Name: Self
+        m_Value: {fileID: 7926580517754755083}
+    - rid: 8405043430226657281
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 1600186353904878957
+          m_Value1: 14638717324407603790
+        Name: HighLookPoint
+        m_Value: {fileID: 4070368845818819186}
+    - rid: 8405043430226657282
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 7134061474315912660
+          m_Value1: 9951290476660133101
+        Name: ClosetLookPoint
+        m_Value: {fileID: 4070368845818819186}
+    - rid: 8405043430226657283
+      type: {class: 'BlackboardVariable`1[[UnityEngine.GameObject, UnityEngine.CoreModule]]', ns: Unity.Behavior, asm: Unity.Behavior}
+      data:
+        GUID:
+          m_Value0: 8993910580596200941
+          m_Value1: 14318088433402434801
+        Name: UnderBedLookPoint
+        m_Value: {fileID: 1595368269658249513}
 --- !u!136 &6679779015355634370
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -372,23 +421,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 7926580517754755083}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ec738f7615827b249809e6bbdf9ddef3, type: 3}
+  m_Script: {fileID: 11500000, guid: bc39a9d3aaf448dc9a9b5192672c516d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sightRange: 100
-  patrolSpeed: 1
-  chaseSpeed: 5
-  searchDuration: 0
-  visionWidth: 45
-  patrolRadius: 10
-  searchRadius: 5
-  searchDelay: 2
-  lifeTime: 20
-  highLookPoint: {fileID: 4070368845818819186}
-  lowLookPoint: {fileID: 1595368269658249513}
-  alertedNoise: {fileID: 8300000, guid: b2714085c20fb4bd4a19caa84c0d731b, type: 3}
-  searchStarted: {fileID: 8300000, guid: 71526097820014b4eb7ae373243c2c79, type: 3}
-  searchEnded: {fileID: 8300000, guid: f079307612ceb44e1ae1dc94ec646216, type: 3}
 --- !u!195 &2317720873077654431
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -398,12 +433,12 @@ NavMeshAgent:
   m_GameObject: {fileID: 7926580517754755083}
   m_Enabled: 1
   m_AgentTypeID: 0
-  m_Radius: 0.5
+  m_Radius: 0.4
   m_Speed: 0
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 240
-  m_StoppingDistance: 2
+  m_StoppingDistance: 0.2
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
@@ -515,10 +550,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7926580517754755083}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -533,7 +568,7 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!95 &8145493782162998653
 Animator:
@@ -548,7 +583,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: e0b30841f57ad724193df6d0c7daf3b5, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
@@ -557,7 +592,7 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &-997082001225621377
+--- !u!114 &3683058813620863463
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -566,16 +601,49 @@ MonoBehaviour:
   m_GameObject: {fileID: 7926580517754755083}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 574c12cb7dfc43d4fbcc6f1101efab74, type: 3}
+  m_Script: {fileID: 11500000, guid: 8f6bdeb674624b11a274d0f0b4f7c8ae, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: 
-  anomalyWeight: 0
-  lifeTime: 0
-  speed: 0
-  spawnLocation: {x: 0, y: 0, z: 0}
-  lookPoint: {fileID: 0}
-  walkingSound: {fileID: 0}
-  alertedSound: {fileID: 0}
+  m_EditorClassIdentifier: Game.Entities::Game.Entities.Octree.PathFindingAgent
+  Target: {fileID: 0}
+  agentRadius: 0.4
+  agentHeight: 2
+  moveSpeed: 3
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 13312
+  groundLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  groundCheckDistance: 2
+  octreeOrigin: {x: -6, y: 0, z: 6}
+  octreeSize: {x: 30, y: 20, z: 30}
+  pointResolveDistance: 4
+  waypointDistance: 0.1
+  constrainMovementToGround: 1
+  preferOctree: 1
+  allowNavMeshFallback: 1
+--- !u!114 &2156608346549144500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7926580517754755083}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0f88cdf849944a7ae3bee86f7f106ae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Entities::Game.Entities.Octree.OctreeDebugger
+  ShowFreeNodes: 1
+  ShowOccupiedNodes: 1
+  ShowPath: 1
+  ShowNavMeshPath: 1
+  ShowNeighbors: 1
+  FreeNodeColor: {r: 0, g: 1, b: 0, a: 0.5}
+  OccupiedNodeColor: {r: 1, g: 0, b: 0, a: 0.5}
+  PathColor: {r: 0, g: 1, b: 1, a: 1}
+  NavMeshPathColor: {r: 1, g: 0.5, b: 0, a: 1}
+  NeighborColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
 --- !u!1001 &3790947040463396481
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -628,7 +696,8 @@ PrefabInstance:
       propertyPath: m_Name
       value: stalker
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 5866666021909216657, guid: c7dddba727eea37468dae145cd8848f3, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []

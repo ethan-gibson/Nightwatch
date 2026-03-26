@@ -1,0 +1,146 @@
+Nightwatch - Stalker AI Change Documentation
+Last updated: 2026-02-23
+
+Scope
+- Document the Stalker AI migration and cleanup performed for the Unity Behavior graph workflow.
+- Capture what changed in code, graph wiring expectations, prefab setup, and GameManager integration.
+
+Summary
+- Migrated Stalker behavior to a pure graph-driven runtime using Unity Behavior.
+- Removed legacy compatibility/bridge code and old API support.
+- Split logic into focused graph actions instead of monolithic controller logic.
+- Updated GameManager to support stalker spawn, pressure pacing, and graph-based stalker validation.
+- Cleaned prefab setup and ensured required graph variable overrides are assigned.
+- Replaced Debug logging usage with Arti logger usage where applicable.
+- Performed action-level and manager-level low-risk optimizations.
+
+Pure Graph Architecture (Stalker)
+- Runtime decisions are handled in StalkerGraph plus action nodes.
+- Blackboard-driven state model:
+  - State enum: Patrol, Chasing, Searching.
+  - Perception vars: PlayerVisible, LastKnownPosition, TimeSinceSeen, LostSightRecently, LostSightMemory.
+  - Movement vars: ChaseSpeed, SearchSpeed, PatrolSpeed, SearchPoint.
+  - Kill/look vars: Player, LookPoint, HighLookPoint, ClosetLookPoint, UnderBedLookPoint.
+  - Audio vars: AlertedNoise, SearchStarted, SearchEnded.
+
+Implemented Graph Actions
+- UpdateStalkerPerceptionAction
+  - Triple-ray LOS checks.
+  - Updates PlayerVisible / LastKnownPosition / TimeSinceSeen / LostSightRecently.
+  - Supports lost-sight memory behavior and optional nulling of Player when unseen.
+- ApplyStalkerStateEffectsAction
+  - Applies state-driven NavMesh speed.
+  - Plays transition one-shot cues for chase/search/patrol transitions.
+- UpdateStalkerLocomotionAction
+  - Updates animator speed parameter from movement.
+  - Controls walking loop audio from velocity threshold.
+- RecoverStalkerIfStuckAction
+  - Detects low-velocity stuck state and repaths to recover.
+- TickStalkerLifetimeAction
+  - Tracks lifetime, transitions to leave mode, navigates to closest exit, despawns.
+- GetPatrolPointAction
+  - Samples NavMesh point for patrol destination.
+- PickRandomSearchPointAction
+  - Samples NavMesh point around last known player position for searching.
+- TryKillPlayerAction
+  - Front/visible kill attempt logic with lock/camera point.
+- TryKillHiddenPlayerAction
+  - Hidden kill attempt logic for closet/under-bed cases with specific look points.
+- StalkerAnimationEvents
+  - Animation callback receiver (death trigger + nav resume helper).
+
+Removed / Deprecated Legacy Pieces
+- Removed old compatibility action:
+  - Assets/Scripts/Entities/Anomalies/Stalker/SyncStalkerRuntimeAction.cs
+- Removed old references for:
+  - EnemyAI compatibility paths.
+  - StalkerGraphRuntime / StalkerGraphConfig legacy dependency paths.
+- Removed legacy stalker hunting-anomaly dependency from stalker prefab.
+
+GameManager Changes
+- File: Assets/Scripts/Managers/GameManager.cs
+- Uses graph-first stalker validation (BehaviorGraphAgent + StalkerAnimationEvents).
+- Director pacing supports:
+  - Report pressure accumulation/relief.
+  - Dynamic anomaly/stalker cooldowns from pressure and session progression.
+  - Emergency stalker spawn trigger at pressure threshold.
+- Naming and maintainability updates:
+  - Renamed typo field to gameLength with FormerlySerializedAs for data safety.
+  - Clarified loop/spawn method names (countdown/anomaly/stalker loops).
+- Performance-oriented updates:
+  - Cached shader property id for static effect.
+  - Cached WaitForSeconds instance for report/warning text timers.
+  - Throttled expensive active-stalker scene scans.
+  - Replaced reflective component checks with typed TryGetComponent.
+
+Prefab and Blackboard Overrides
+- Prefab: Assets/Prefabs/GamePlay/Anomalies/Stalker.prefab
+- BehaviorGraphAgent is present and linked to StalkerGraph.
+- Blackboard overrides on prefab include:
+  - Self
+  - HighLookPoint
+  - ClosetLookPoint
+  - UnderBedLookPoint
+- Prefab corruption issue was resolved by removing a dangling missing component entry.
+
+Graph Wiring Requirements (Final Expectations)
+- Top-level selection: Chase branch has observer behavior (RepeatWhile PlayerVisible true).
+- Chase abort path is immediate when PlayerVisible becomes false.
+- Search branch includes hidden-kill attempt path:
+  - Try In Order:
+    - TryKillHiddenPlayerAction
+    - PickRandomSearchPoint -> NavigateToLocation -> Wait
+- Lost-sight memory is used to gate search continuation.
+- Patrol branch handles default roam behavior when no chase/search condition passes.
+
+Known Configuration Inputs to Keep Set in Graph
+- Perception:
+  - Sight range, FOV/vision width, origin offset.
+  - Player head/torso/leg offsets.
+  - Raycast mask and trigger handling.
+  - LostSightMemory (or fallback value).
+- State effects:
+  - AlertedNoise, SearchStarted, SearchEnded clips.
+- Lifetime:
+  - LifeTime, ExitTag, LeaveSnapHeightOffset.
+- Recovery:
+  - StuckVelocityThreshold, StuckDuration, RepathRadius thresholds.
+- Kill actions:
+  - Player variable should resolve consistently.
+  - LookPoint/ClosetLookPoint/UnderBedLookPoint should remain assigned.
+
+Optimization Pass Notes
+- Reduced repeated expensive operations in per-tick actions:
+  - Reused cached player reference before tag lookup fallback.
+  - Cached cosine half-FOV computation in perception.
+  - Avoided unnecessary animator float writes.
+  - Used squared velocity comparisons to avoid sqrt where possible.
+  - Avoided redundant NavMeshAgent speed sets when unchanged.
+- Preserved behavior while minimizing allocations and repeated lookups.
+
+Logging Standard
+- Project logging policy in this pass:
+  - Use `Logger = Arti.Utilities.Logger` for explicit logs in manager/components.
+  - Avoid introducing new Debug.Log usage in touched stalker/manager paths.
+
+Current Playtest Readiness Notes
+- Stalker code path is aligned with graph-first architecture.
+- Prefab has required graph agent and look-point overrides assigned.
+- Graph contains action nodes required for chase/search/patrol and hidden kill handling.
+- Final validation should be done in-editor playtest (no CLI build expected for this Unity workflow).
+
+Primary Files Involved
+- Assets/Scripts/Managers/GameManager.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/ApplyStalkerStateEffectsAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/GetPatrolPointAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/PickRandomSearchPointAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/RecoverStalkerIfStuckAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/StalkerAnimationEvents.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/StalkerState.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/TickStalkerLifetimeAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/TryKillPlayerAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/TryKillHiddenPlayerAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/UpdateStalkerLocomotionAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/UpdateStalkerPerceptionAction.cs
+- Assets/Scripts/Entities/Anomalies/Stalker/StalkerGraph.asset
+- Assets/Prefabs/GamePlay/Anomalies/Stalker.prefab
