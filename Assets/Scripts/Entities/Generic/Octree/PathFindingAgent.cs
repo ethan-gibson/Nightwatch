@@ -690,7 +690,10 @@ namespace Game.Entities.Octree
 			if (octree == null) { return; }
 
 			octree.RebuildRegion(_doorBounds);
-			octreeDebugger.SetOctree(octree);
+			if (octreeDebugger != null)
+			{
+				octreeDebugger.SetOctree(octree);
+			}
 			if (movementAuthority != StalkerMovementAuthority.Octree || activeNavigationMode != NavigationMode.Octree || isAnimationMovementLocked() || !hasDestination || (!IsMoving && !hasOctreePath())) { return; }
 
 			RequestPath(Destination);
