@@ -795,107 +795,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6983477a3e1a17e488a1e991926d7989, type: 3}
---- !u!1001 &353905160
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -18.29
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 5.583
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 10.01
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1718757989369148551, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: ShowPath
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: ShowFreeNodes
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: ShowNeighbors
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 2156608346549144500, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: ShowOccupiedNodes
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeSize.x
-      value: 100
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeSize.y
-      value: 24
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeSize.z
-      value: 100
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: preferOctree
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeOrigin.x
-      value: 2.68
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeOrigin.y
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 3683058813620863463, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: octreeOrigin.z
-      value: 5.97
-      objectReference: {fileID: 0}
-    - target: {fileID: 7926580517754755083, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
-      propertyPath: m_Name
-      value: Stalker
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 928061eb8c872a24bba4584fc50cef5a, type: 3}
 --- !u!82 &746873989 stripped
 AudioSource:
   m_CorrespondingSourceObject: {fileID: 673487353314750666, guid: 90a6ca6d1d795734a821f03f87fd73e8, type: 3}
@@ -1589,7 +1488,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 775923722527498846, guid: dd1a4639f0d88a241a1e4e2fe4c62c56, type: 3}
       propertyPath: openRot
-      value: -90
+      value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 775923722527498846, guid: dd1a4639f0d88a241a1e4e2fe4c62c56, type: 3}
       propertyPath: openDoorLayer.m_Bits
@@ -1919,4 +1818,3 @@ SceneRoots:
   - {fileID: 1089758705}
   - {fileID: 216720718}
   - {fileID: 6755474835411798310}
-  - {fileID: 353905160}
